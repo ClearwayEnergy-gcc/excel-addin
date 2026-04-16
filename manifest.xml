@@ -107,7 +107,7 @@
                   </Action>
                 </Control>
 
-                <!-- Button 3: Clear Range -->
+                <!-- Button 3: Goal Seek -->
                 <Control xsi:type="Button" id="Button3">
                   <Label resid="Button3.Label" />
                   <Supertip>
@@ -120,7 +120,7 @@
                     <bt:Image size="80" resid="Icon.80x80" />
                   </Icon>
                   <Action xsi:type="ExecuteFunction">
-                    <FunctionName>clearRange</FunctionName>
+                    <FunctionName>goalSeek</FunctionName>
                   </Action>
                 </Control>
 
@@ -148,14 +148,14 @@
         <bt:String id="OpenTaskPane.Label" DefaultValue="Show Log" />
         <bt:String id="Button1.Label" DefaultValue="Read Cell" />
         <bt:String id="Button2.Label" DefaultValue="Write Data" />
-        <bt:String id="Button3.Label" DefaultValue="Clear Range" />
+        <bt:String id="Button3.Label" DefaultValue="Goal Seek" />
       </bt:ShortStrings>
       <bt:LongStrings>
         <bt:String id="GetStarted.Description" DefaultValue="Use the ribbon buttons to run macros. Open the activity log to see results." />
         <bt:String id="OpenTaskPane.Tooltip" DefaultValue="Opens the activity log task pane." />
         <bt:String id="Button1.Tooltip" DefaultValue="Reads the selected cell value and logs it to the activity log." />
         <bt:String id="Button2.Tooltip" DefaultValue="Writes sample data to A1:C3 and logs the action." />
-        <bt:String id="Button3.Tooltip" DefaultValue="Clears the range A1:C3 and logs the action." />
+        <bt:String id="Button3.Tooltip" DefaultValue="Iterates CEG_Guess → CEG_Input until CEG_Target reaches zero." />
       </bt:LongStrings>
     </Resources>
   </VersionOverrides>

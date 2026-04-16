@@ -13,7 +13,7 @@ Office.onReady(function () {
   // Register functions so Office can find them by name from the manifest.
   Office.actions.associate('readCell',  readCell);
   Office.actions.associate('writeData', writeData);
-  Office.actions.associate('clearRange', clearRange);
+  Office.actions.associate('goalSeek',  goalSeek);
 });
 
 // ── Logging helper ────────────────────────────────────────────────────────────
@@ -99,22 +99,106 @@ function writeData(event) {
   });
 }
 
-// ── Button 3: Clear Range ─────────────────────────────────────────────────────
-// Clears all content and formatting from A1:C3.
+// ── Button 3: Goal Seek ───────────────────────────────────────────────────────
+// Requires three named ranges in the workbook:
+//   CEG_Target — a formula cell that should reach 0 (e.g. model output - target)
+//   CEG_Input  — the input cell whose value is overwritten each iteration
+//   CEG_Guess  — a formula cell that computes the next candidate value for CEG_Input
+//
+// Each iteration:
+//   1. Read CEG_Target — stop if |value| ≤ TOLERANCE
+//   2. Read CEG_Guess
+//   3. Write CEG_Guess → CEG_Input  (triggers Excel recalculation)
+//   4. Repeat
 
-function clearRange(event) {
+function goalSeek(event) {
+  var MAX_ITERATIONS = 1000;
+  var TOLERANCE      = 1e-10;  // treat |CEG_Target| <= this as "equal to zero"
+
   Excel.run(function (context) {
-    var sheet = context.workbook.worksheets.getActiveWorksheet();
-    sheet.getRange('A1:C3').clear();
+    var names = context.workbook.names;
+
+    // getItemOrNullObject avoids a hard error if a name is missing
+    var targetItem = names.getItemOrNullObject('CEG_Target');
+    var inputItem  = names.getItemOrNullObject('CEG_Input');
+    var guessItem  = names.getItemOrNullObject('CEG_Guess');
+
+    targetItem.load('isNullObject');
+    inputItem.load('isNullObject');
+    guessItem.load('isNullObject');
 
     return context.sync().then(function () {
-      writeLog('Clear Range: A1:C3 cleared', 'success');
+
+      // ── Step 1: Verify all three named ranges exist ─────────────────────────
+      var missing = [];
+      if (targetItem.isNullObject) missing.push('CEG_Target');
+      if (inputItem.isNullObject)  missing.push('CEG_Input');
+      if (guessItem.isNullObject)  missing.push('CEG_Guess');
+
+      if (missing.length > 0) {
+        writeLog('Goal Seek: Missing named range(s): ' + missing.join(', '), 'error');
+        return;
+      }
+
+      writeLog('Goal Seek: Named ranges found — CEG_Target, CEG_Input, CEG_Guess.', 'info');
+
+      var targetRange = targetItem.getRange();
+      var inputRange  = inputItem.getRange();
+      var guessRange  = guessItem.getRange();
+
+      // ── Step 2: Enter the iterative loop ────────────────────────────────────
+      return goalSeekIterate(context, targetRange, inputRange, guessRange,
+                             0, MAX_ITERATIONS, TOLERANCE);
     });
   })
   .catch(function (error) {
-    writeLog('Clear Range error: ' + error.message, 'error');
+    writeLog('Goal Seek error: ' + error.message, 'error');
   })
   .then(function () {
     event.completed();
+  });
+}
+
+// Recursive helper — one Promise chain per iteration so Excel can recalculate
+// between each sync() call.
+function goalSeekIterate(context, targetRange, inputRange, guessRange,
+                         iteration, maxIter, tol) {
+
+  if (iteration >= maxIter) {
+    writeLog('Goal Seek: Did not converge after ' + maxIter + ' iterations.', 'error');
+    return Promise.resolve();
+  }
+
+  // Load both values before the sync so we get them in one round-trip
+  targetRange.load('values');
+  guessRange.load('values');
+
+  return context.sync().then(function () {
+    var targetValue = targetRange.values[0][0];
+    var guessValue  = guessRange.values[0][0];
+
+    // Log progress on first iteration and every 50 after that
+    if (iteration === 0 || iteration % 50 === 0) {
+      writeLog('Goal Seek [iter ' + iteration + ']: CEG_Target = ' + targetValue, 'info');
+    }
+
+    // Convergence check — stop when |CEG_Target| is close enough to zero
+    if (Math.abs(targetValue) <= tol) {
+      writeLog(
+        'Goal Seek: Converged in ' + iteration + ' iteration(s). ' +
+        'CEG_Target = ' + targetValue,
+        'success'
+      );
+      return;
+    }
+
+    // Copy CEG_Guess → CEG_Input to advance the iteration
+    inputRange.values = [[guessValue]];
+
+    // Sync triggers Excel recalculation; then recurse for the next iteration
+    return context.sync().then(function () {
+      return goalSeekIterate(context, targetRange, inputRange, guessRange,
+                             iteration + 1, maxIter, tol);
+    });
   });
 }
