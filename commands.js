@@ -220,10 +220,13 @@ function readRenameList(event) {
 // workbook. Works on any open workbook — intended to be run on the TARGET file
 // after using the source file to build the rename map.
 //
-// Rename strategy (Office.js has no direct rename API):
-//   1. Load formula references for all old names (1 sync)
-//   2. Batch-add all new names with the same formula references (1 sync)
-//   3. Batch-delete all old names (1 sync)
+// Rename strategy (ExcelApi 1.4+):
+//   Set NamedItem.name = newName directly. Excel rewires all formula references
+//   that use the old name automatically — no add/delete needed.
+//
+//   1. Load isNullObject for every old name AND new name (1 sync)
+//   2. Filter out: old name not found, new name already exists
+//   3. Batch-assign .name = newName for all valid items (1 sync)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function applyNamedRangeRename(event) {
@@ -244,19 +247,18 @@ function applyNamedRangeRename(event) {
   Excel.run(function (context) {
     var names = context.workbook.names;
 
-    // ── Step 1: Load existence + formula for every old name,
-    //           and check whether the new name already exists ─────────────────
+    // ── Step 1: Load isNullObject for every old name and new name ────────────
     var loaders = renameMap.map(function (pair) {
       var oldItem = names.getItemOrNullObject(pair.oldName);
       var newItem = names.getItemOrNullObject(pair.newName);
-      oldItem.load(['isNullObject', 'formula']);
+      oldItem.load('isNullObject');
       newItem.load('isNullObject');
       return { pair: pair, oldItem: oldItem, newItem: newItem };
     });
 
     return context.sync().then(function () {
 
-      // Separate found vs not-found, and check for new-name conflicts
+      // ── Step 2: Filter — skip missing old names and conflicting new names ──
       var toRename = [];
       loaders.forEach(function (loader) {
         if (loader.oldItem.isNullObject) {
@@ -274,7 +276,6 @@ function applyNamedRangeRename(event) {
           toRename.push({
             oldName: loader.pair.oldName,
             newName: loader.pair.newName,
-            formula: loader.oldItem.formula,
             oldItem: loader.oldItem
           });
         }
@@ -284,39 +285,29 @@ function applyNamedRangeRename(event) {
 
       if (toRename.length === 0) {
         writeLog(
-          'Apply Rename: Nothing to rename — ' +
-          (skipped === renameMap.length
-            ? 'all pairs were skipped (old names not found or new names already exist).'
-            : 'no valid pairs remain.'),
+          'Apply Rename: Nothing to rename — all pairs were skipped ' +
+          '(old names not found or new names already exist).',
           'error'
         );
         return;
       }
 
-      // ── Step 2: Batch-add all new names ──────────────────────────────────
+      // ── Step 3: Batch-rename in place (ExcelApi 1.4+) ────────────────────
+      // Assigning .name updates all formula references automatically.
       toRename.forEach(function (entry) {
-        names.add(entry.newName, entry.formula);
+        entry.oldItem.name = entry.newName;
       });
 
       return context.sync().then(function () {
-
-        // ── Step 3: Batch-delete all old names ───────────────────────────
         toRename.forEach(function (entry) {
-          entry.oldItem.delete();
+          writeLog('  ✓  "' + entry.oldName + '"  →  "' + entry.newName + '"', 'success');
         });
 
-        return context.sync().then(function () {
-          // Log individual results
-          toRename.forEach(function (entry) {
-            writeLog('  ✓  "' + entry.oldName + '"  →  "' + entry.newName + '"', 'success');
-          });
-
-          writeLog(
-            'Apply Rename: Complete — ' + toRename.length + ' renamed' +
-            (skipped > 0 ? ', ' + skipped + ' skipped.' : '.'),
-            'success'
-          );
-        });
+        writeLog(
+          'Apply Rename: Complete — ' + toRename.length + ' renamed' +
+          (skipped > 0 ? ', ' + skipped + ' skipped.' : '.'),
+          'success'
+        );
       });
     });
   })
