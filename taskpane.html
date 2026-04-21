@@ -11,13 +11,38 @@
 </head>
 <body>
   <div id="app">
+
     <header>
-      <h1>Activity Log</h1>
-      <button id="clearLogBtn" title="Clear all log entries">Clear Log</button>
+      <h1>Excel Macro Add-in</h1>
     </header>
-    <div id="log-container">
-      <ul id="log-list"></ul>
-    </div>
+
+    <!-- ── Named Ranges Panel ───────────────────────────────────────────── -->
+    <section id="nr-panel">
+      <div id="nr-header" role="button" aria-expanded="false">
+        <span id="nr-title">Named Ranges</span>
+        <span id="nr-badge" class="badge">0</span>
+        <span id="nr-ts" class="nr-ts"></span>
+        <span id="nr-chevron" class="chevron">▶</span>
+      </div>
+      <div id="nr-body" class="nr-collapsed">
+        <ul id="nr-list"></ul>
+        <p id="nr-empty" class="panel-empty">
+          Run "Read Named-Ranges" from the ribbon to populate.
+        </p>
+      </div>
+    </section>
+
+    <!-- ── Activity Log ─────────────────────────────────────────────────── -->
+    <section id="log-section">
+      <div id="log-header">
+        <span class="section-title">Activity Log</span>
+        <button id="clearLogBtn" title="Clear all log entries">Clear Log</button>
+      </div>
+      <div id="log-container">
+        <ul id="log-list"></ul>
+      </div>
+    </section>
+
   </div>
   <script src="taskpane.js"></script>
 </body>

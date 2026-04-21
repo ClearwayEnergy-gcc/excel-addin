@@ -73,7 +73,7 @@
                   </Action>
                 </Control>
 
-                <!-- Button 1: Read Cell -->
+                <!-- Button 1: Read Named-Ranges -->
                 <Control xsi:type="Button" id="Button1">
                   <Label resid="Button1.Label" />
                   <Supertip>
@@ -86,7 +86,7 @@
                     <bt:Image size="80" resid="Icon.80x80" />
                   </Icon>
                   <Action xsi:type="ExecuteFunction">
-                    <FunctionName>readCell</FunctionName>
+                    <FunctionName>readNamedRanges</FunctionName>
                   </Action>
                 </Control>
 
@@ -146,14 +146,14 @@
         <bt:String id="GetStarted.Title" DefaultValue="Excel Macro Add-in loaded!" />
         <bt:String id="CommandsGroup.Label" DefaultValue="Excel Macros" />
         <bt:String id="OpenTaskPane.Label" DefaultValue="Show Log" />
-        <bt:String id="Button1.Label" DefaultValue="Read Cell" />
+        <bt:String id="Button1.Label" DefaultValue="Read Named-Ranges" />
         <bt:String id="Button2.Label" DefaultValue="Write Data" />
         <bt:String id="Button3.Label" DefaultValue="Goal Seek" />
       </bt:ShortStrings>
       <bt:LongStrings>
         <bt:String id="GetStarted.Description" DefaultValue="Use the ribbon buttons to run macros. Open the activity log to see results." />
         <bt:String id="OpenTaskPane.Tooltip" DefaultValue="Opens the activity log task pane." />
-        <bt:String id="Button1.Tooltip" DefaultValue="Reads the selected cell value and logs it to the activity log." />
+        <bt:String id="Button1.Tooltip" DefaultValue="Reads all named ranges from the workbook and stores them for use by other functions." />
         <bt:String id="Button2.Tooltip" DefaultValue="Writes sample data to A1:C3 and logs the action." />
         <bt:String id="Button3.Tooltip" DefaultValue="Iterates CEG_Guess → CEG_Input until CEG_Target reaches zero." />
       </bt:LongStrings>
