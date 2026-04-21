@@ -244,29 +244,38 @@ function applyNamedRangeRename(event) {
   Excel.run(function (context) {
     var names = context.workbook.names;
 
-    // ── Step 1: Load existence + formula for every old name ──────────────────
+    // ── Step 1: Load existence + formula for every old name,
+    //           and check whether the new name already exists ─────────────────
     var loaders = renameMap.map(function (pair) {
-      var item = names.getItemOrNullObject(pair.oldName);
-      item.load(['isNullObject', 'formula']);
-      return { pair: pair, item: item };
+      var oldItem = names.getItemOrNullObject(pair.oldName);
+      var newItem = names.getItemOrNullObject(pair.newName);
+      oldItem.load(['isNullObject', 'formula']);
+      newItem.load('isNullObject');
+      return { pair: pair, oldItem: oldItem, newItem: newItem };
     });
 
     return context.sync().then(function () {
 
-      // Separate found vs not-found
+      // Separate found vs not-found, and check for new-name conflicts
       var toRename = [];
       loaders.forEach(function (loader) {
-        if (loader.item.isNullObject) {
+        if (loader.oldItem.isNullObject) {
           writeLog(
             '  Skipped "' + loader.pair.oldName + '" — not found in this workbook.',
+            'info'
+          );
+        } else if (!loader.newItem.isNullObject) {
+          writeLog(
+            '  Skipped "' + loader.pair.oldName + '" → "' + loader.pair.newName +
+            '" — "' + loader.pair.newName + '" already exists in this workbook.',
             'info'
           );
         } else {
           toRename.push({
             oldName: loader.pair.oldName,
             newName: loader.pair.newName,
-            formula: loader.item.formula,
-            oldItem: loader.item
+            formula: loader.oldItem.formula,
+            oldItem: loader.oldItem
           });
         }
       });
@@ -275,8 +284,10 @@ function applyNamedRangeRename(event) {
 
       if (toRename.length === 0) {
         writeLog(
-          'Apply Rename: None of the named ranges in the map exist in this workbook. ' +
-          'Make sure you have the correct workbook active.',
+          'Apply Rename: Nothing to rename — ' +
+          (skipped === renameMap.length
+            ? 'all pairs were skipped (old names not found or new names already exist).'
+            : 'no valid pairs remain.'),
           'error'
         );
         return;
@@ -302,7 +313,7 @@ function applyNamedRangeRename(event) {
 
           writeLog(
             'Apply Rename: Complete — ' + toRename.length + ' renamed' +
-            (skipped > 0 ? ', ' + skipped + ' not found in this workbook.' : '.'),
+            (skipped > 0 ? ', ' + skipped + ' skipped.' : '.'),
             'success'
           );
         });
