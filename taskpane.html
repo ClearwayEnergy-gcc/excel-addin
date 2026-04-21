@@ -6,7 +6,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Activity Log</title>
   <link rel="stylesheet" href="taskpane.css" />
-  <!-- Office.js must load before your scripts -->
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js" type="text/javascript"></script>
 </head>
 <body>
@@ -16,23 +15,23 @@
       <h1>Excel Macro Add-in</h1>
     </header>
 
-    <!-- ── Named Ranges Panel ───────────────────────────────────────────── -->
+    <!-- ── Rename Map Panel ─────────────────────────────────────────────────── -->
     <section id="nr-panel">
       <div id="nr-header" role="button" aria-expanded="false">
-        <span id="nr-title">Named Ranges</span>
-        <span id="nr-badge" class="badge">0</span>
+        <span id="nr-title">Rename Map</span>
+        <span id="nr-badge" class="badge empty">0</span>
         <span id="nr-ts" class="nr-ts"></span>
         <span id="nr-chevron" class="chevron">▶</span>
       </div>
       <div id="nr-body" class="nr-collapsed">
         <ul id="nr-list"></ul>
         <p id="nr-empty" class="panel-empty">
-          Run "Read Named-Ranges" from the ribbon to populate.
+          Run "Read Named-Ranges" → fill Column B → "Read Rename List".
         </p>
       </div>
     </section>
 
-    <!-- ── Activity Log ─────────────────────────────────────────────────── -->
+    <!-- ── Activity Log ─────────────────────────────────────────────────────── -->
     <section id="log-section">
       <div id="log-header">
         <span class="section-title">Activity Log</span>

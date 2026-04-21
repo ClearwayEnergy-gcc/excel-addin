@@ -41,11 +41,9 @@
             <LearnMoreUrl resid="LearnMoreUrl" />
           </GetStarted>
 
-          <!-- The function file hosts ribbon button logic (commands.html loads commands.js) -->
           <FunctionFile resid="Commands.Url" />
 
           <ExtensionPoint xsi:type="PrimaryCommandSurface">
-            <!-- Adds buttons to the Home tab -->
             <OfficeTab id="TabHome">
               <Group id="MyMacroGroup">
                 <Label resid="CommandsGroup.Label" />
@@ -55,7 +53,7 @@
                   <bt:Image size="80" resid="Icon.80x80" />
                 </Icon>
 
-                <!-- Button: Open Activity Log Task Pane -->
+                <!-- Open Activity Log Task Pane -->
                 <Control xsi:type="Button" id="OpenTaskPane">
                   <Label resid="OpenTaskPane.Label" />
                   <Supertip>
@@ -90,7 +88,7 @@
                   </Action>
                 </Control>
 
-                <!-- Button 2: Write Data -->
+                <!-- Button 2: Read Rename List -->
                 <Control xsi:type="Button" id="Button2">
                   <Label resid="Button2.Label" />
                   <Supertip>
@@ -103,16 +101,33 @@
                     <bt:Image size="80" resid="Icon.80x80" />
                   </Icon>
                   <Action xsi:type="ExecuteFunction">
-                    <FunctionName>writeData</FunctionName>
+                    <FunctionName>readRenameList</FunctionName>
                   </Action>
                 </Control>
 
-                <!-- Button 3: Goal Seek -->
+                <!-- Button 3: Apply Named-Range Rename -->
                 <Control xsi:type="Button" id="Button3">
                   <Label resid="Button3.Label" />
                   <Supertip>
                     <Title resid="Button3.Label" />
                     <Description resid="Button3.Tooltip" />
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Icon.16x16" />
+                    <bt:Image size="32" resid="Icon.32x32" />
+                    <bt:Image size="80" resid="Icon.80x80" />
+                  </Icon>
+                  <Action xsi:type="ExecuteFunction">
+                    <FunctionName>applyNamedRangeRename</FunctionName>
+                  </Action>
+                </Control>
+
+                <!-- Button 4: Goal Seek -->
+                <Control xsi:type="Button" id="Button4">
+                  <Label resid="Button4.Label" />
+                  <Supertip>
+                    <Title resid="Button4.Label" />
+                    <Description resid="Button4.Tooltip" />
                   </Supertip>
                   <Icon>
                     <bt:Image size="16" resid="Icon.16x16" />
@@ -147,15 +162,17 @@
         <bt:String id="CommandsGroup.Label" DefaultValue="Excel Macros" />
         <bt:String id="OpenTaskPane.Label" DefaultValue="Show Log" />
         <bt:String id="Button1.Label" DefaultValue="Read Named-Ranges" />
-        <bt:String id="Button2.Label" DefaultValue="Write Data" />
-        <bt:String id="Button3.Label" DefaultValue="Goal Seek" />
+        <bt:String id="Button2.Label" DefaultValue="Read Rename List" />
+        <bt:String id="Button3.Label" DefaultValue="Apply Rename" />
+        <bt:String id="Button4.Label" DefaultValue="Goal Seek" />
       </bt:ShortStrings>
       <bt:LongStrings>
         <bt:String id="GetStarted.Description" DefaultValue="Use the ribbon buttons to run macros. Open the activity log to see results." />
         <bt:String id="OpenTaskPane.Tooltip" DefaultValue="Opens the activity log task pane." />
-        <bt:String id="Button1.Tooltip" DefaultValue="Reads all named ranges from the workbook and stores them for use by other functions." />
-        <bt:String id="Button2.Tooltip" DefaultValue="Writes sample data to A1:C3 and logs the action." />
-        <bt:String id="Button3.Tooltip" DefaultValue="Iterates CEG_Guess → CEG_Input until CEG_Target reaches zero." />
+        <bt:String id="Button1.Tooltip" DefaultValue="Creates a Manage Named-Ranges sheet in this workbook listing all named ranges in Column A. Fill Column B with new names, then click Read Rename List." />
+        <bt:String id="Button2.Tooltip" DefaultValue="Reads the old/new name pairs from the Manage Named-Ranges sheet (skipping blank rows in Column B) and stores them in memory." />
+        <bt:String id="Button3.Tooltip" DefaultValue="Applies the stored rename map to the currently active workbook, creating new named ranges and deleting the old ones." />
+        <bt:String id="Button4.Tooltip" DefaultValue="Iterates CEG_Guess into CEG_Input until CEG_Target reaches zero." />
       </bt:LongStrings>
     </Resources>
   </VersionOverrides>
