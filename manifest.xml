@@ -10,8 +10,8 @@
   <Version>1.0.0.0</Version>
   <ProviderName>ClearwayEnergy-gcc</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="Excel Macro Add-in" />
-  <Description DefaultValue="Excel Add-in task pane with command buttons and an activity log." />
+  <DisplayName DefaultValue="Clearway Project Financial Model Add-in" />
+  <Description DefaultValue="Clearway Project Financial Model Add-in task pane with command buttons and an activity log." />
   <IconUrl DefaultValue="https://clearwayenergy-gcc.github.io/excel-addin/assets/icon-80.png" />
   <HighResolutionIconUrl DefaultValue="https://clearwayenergy-gcc.github.io/excel-addin/assets/icon-80.png" />
   <SupportUrl DefaultValue="https://github.com/ClearwayEnergy-gcc/excel-addin" />
@@ -87,13 +87,13 @@
         <bt:Url id="TaskPane.Url" DefaultValue="https://clearwayenergy-gcc.github.io/excel-addin/taskpane.html" />
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="GetStarted.Title" DefaultValue="Excel Macro Add-in loaded!" />
-        <bt:String id="CommandsGroup.Label" DefaultValue="Excel Macros" />
+        <bt:String id="GetStarted.Title" DefaultValue="Clearway Project Financial Model Add-in loaded!" />
+        <bt:String id="CommandsGroup.Label" DefaultValue="Clearway PFM" />
         <bt:String id="OpenTaskPane.Label" DefaultValue="Open Task Pane" />
       </bt:ShortStrings>
       <bt:LongStrings>
-        <bt:String id="GetStarted.Description" DefaultValue="Open the task pane to run macros and see the activity log." />
-        <bt:String id="OpenTaskPane.Tooltip" DefaultValue="Opens the Excel Macro Add-in task pane." />
+        <bt:String id="GetStarted.Description" DefaultValue="Open the task pane to run commands and see the activity log." />
+        <bt:String id="OpenTaskPane.Tooltip" DefaultValue="Opens the Clearway Project Financial Model Add-in task pane." />
       </bt:LongStrings>
     </Resources>
   </VersionOverrides>
