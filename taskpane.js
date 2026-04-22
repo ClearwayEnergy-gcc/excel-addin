@@ -5,14 +5,14 @@
 // opens the task pane; there are no ExecuteFunction ribbon buttons.
 
 import { clearLog, showEmptyState } from './log.js';
-import { checkModel, solveTEUpfront, flipDate } from './commands.js';
+import { checkModel, solveTEIUpfrontInvestment, findTEPshipFlipDate } from './commands.js';
 
 Office.onReady(function (info) {
   if (info.host === Office.HostType.Excel) {
     document.getElementById('clearLogBtn').addEventListener('click', clearLog);
     document.getElementById('checkModelBtn').addEventListener('click', checkModel);
-    document.getElementById('solveTEUpfrontBtn').addEventListener('click', solveTEUpfront);
-    document.getElementById('flipDateBtn').addEventListener('click', flipDate);
+    document.getElementById('solveTEUpfrontBtn').addEventListener('click', solveTEIUpfrontInvestment);
+    document.getElementById('flipDateBtn').addEventListener('click', findTEPshipFlipDate);
     showEmptyState();
   }
 });

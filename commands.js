@@ -37,7 +37,7 @@ export function checkModel() {
 // until CEG_TEUpfront_Diff = 0.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export function solveTEUpfront() {
+export function solveTEIUpfrontInvestment() {
   var MAX_ITER = 1000;
 
   Excel.run(function (context) {
@@ -178,7 +178,7 @@ function _solveTEUpfrontLoop(context, rDiff, rHC, rLive, iter, maxIter) {
 // subsequently solves for CEG_FlipProrate.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export function flipDate() {
+export function findTEPshipFlipDate() {
   var MAX_ITER = 10000;
 
   Excel.run(function (context) {
