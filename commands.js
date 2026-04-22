@@ -11,6 +11,7 @@ import { writeLog } from './log.js';
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export function checkModel() {
+  var t0 = Date.now();
   return Excel.run(function (context) {
     var item = context.workbook.names.getItemOrNullObject('CEG_ModelTemplateVersion');
     item.load('isNullObject,value');
@@ -25,6 +26,9 @@ export function checkModel() {
   })
   .catch(function (error) {
     writeLog('Check Model error: ' + error.message, 'error');
+  })
+  .then(function () {
+    writeLog('Check Model: completed in ' + ((Date.now() - t0) / 1000).toFixed(2) + 's.', 'info');
   });
 }
 
@@ -39,6 +43,7 @@ export function checkModel() {
 
 export function solveTEIUpfrontInvestment() {
   var MAX_ITER = 50;
+  var t0 = Date.now();
 
   return Excel.run(function (context) {
     var wb = context.workbook;
@@ -132,6 +137,9 @@ export function solveTEIUpfrontInvestment() {
   })
   .catch(function (error) {
     writeLog('Solve TE Upfront error: ' + error.message, 'error');
+  })
+  .then(function () {
+    writeLog('Solve TEI Upfront Investment: completed in ' + ((Date.now() - t0) / 1000).toFixed(2) + 's.', 'info');
   });
 }
 
@@ -180,6 +188,7 @@ function _solveTEUpfrontLoop(context, rDiff, rHC, rLive, iter, maxIter) {
 
 export function findTEPshipFlipDate() {
   var MAX_ITER = 50;
+  var t0 = Date.now();
 
   return Excel.run(function (context) {
     var wb = context.workbook;
@@ -333,6 +342,9 @@ export function findTEPshipFlipDate() {
   })
   .catch(function (error) {
     writeLog('Flip Date error: ' + error.message, 'error');
+  })
+  .then(function () {
+    writeLog('Find TE Partnership Flip Date: completed in ' + ((Date.now() - t0) / 1000).toFixed(2) + 's.', 'info');
   });
 }
 
@@ -460,6 +472,7 @@ function _valuesEqual(a, b) {
 
 export function solveTermDebt() {
   var flags = null; // shared across the promise chain
+  var t0 = Date.now();
 
   // ── Step 1: validate ranges, check TDActive, read all scenario flags ───────
   return Excel.run(function (context) {
@@ -660,6 +673,9 @@ export function solveTermDebt() {
 
   .catch(function (error) {
     writeLog('Term Debt Solve error: ' + error.message, 'error');
+  })
+  .then(function () {
+    writeLog('Solve Term Debt: completed in ' + ((Date.now() - t0) / 1000).toFixed(2) + 's.', 'info');
   });
 }
 
@@ -672,6 +688,7 @@ export function solveTermDebt() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export function iterateTermDebt() {
+  var t0 = Date.now();
   return Excel.run(function (context) {
     var nSweepActive = context.workbook.names.getItemOrNullObject('CEG_SweepActive');
     nSweepActive.load('isNullObject');
@@ -698,6 +715,9 @@ export function iterateTermDebt() {
   })
   .catch(function (error) {
     writeLog('Iterate Term Debt error: ' + error.message, 'error');
+  })
+  .then(function () {
+    writeLog('Iterate Term Debt: completed in ' + ((Date.now() - t0) / 1000).toFixed(2) + 's.', 'info');
   });
 }
 
