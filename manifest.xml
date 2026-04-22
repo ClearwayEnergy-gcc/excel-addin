@@ -89,10 +89,10 @@
       <bt:ShortStrings>
         <bt:String id="GetStarted.Title" DefaultValue="Clearway Project Financial Model Add-in loaded!" />
         <bt:String id="CommandsGroup.Label" DefaultValue="Clearway PFM" />
-        <bt:String id="OpenTaskPane.Label" DefaultValue="Open Task Pane" />
+        <bt:String id="OpenTaskPane.Label" DefaultValue="Show Control Panel" />
       </bt:ShortStrings>
       <bt:LongStrings>
-        <bt:String id="GetStarted.Description" DefaultValue="Open the task pane to run commands and see the activity log." />
+        <bt:String id="GetStarted.Description" DefaultValue="Open the task pane to run Commands and see the Activity Log." />
         <bt:String id="OpenTaskPane.Tooltip" DefaultValue="Opens the Clearway Project Financial Model Add-in task pane." />
       </bt:LongStrings>
     </Resources>
