@@ -855,6 +855,232 @@ function _sweepCapAndDebtSizing(bClear) {
   });
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// COMMAND — Solve CWEN Investment
+// Port of CashEquity.SolveCWEN().
+//
+// Sets CEG_FinancingScenario = 5, solves the flip date, then iterates:
+//   CEG_MerchantNPVPaste  ← CEG_MerchantNPVCopy
+//   CEG_MerchantCAFDPaste ← CEG_MerchantCAFDCopy
+//   CEG_CWENPP_HC         ← CEG_CWENPP_Live
+// until CEG_CWENPP_Diff = 0.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export function solveCWEN() {
+  var MAX_ITER = 50;
+  var t0 = Date.now();
+  var ok = false;
+
+  // Step 1: validate ranges, set calculation and scenario
+  return Excel.run(function (context) {
+    var wb = context.workbook;
+    wb.application.calculationMode = Excel.CalculationMode.automatic;
+
+    var nFinancingScenario = wb.names.getItemOrNullObject('CEG_FinancingScenario');
+    var nNPVPaste          = wb.names.getItemOrNullObject('CEG_MerchantNPVPaste');
+    var nNPVCopy           = wb.names.getItemOrNullObject('CEG_MerchantNPVCopy');
+    var nCAFDPaste         = wb.names.getItemOrNullObject('CEG_MerchantCAFDPaste');
+    var nCAFDCopy          = wb.names.getItemOrNullObject('CEG_MerchantCAFDCopy');
+    var nCWENPPHC          = wb.names.getItemOrNullObject('CEG_CWENPP_HC');
+    var nCWENPPLive        = wb.names.getItemOrNullObject('CEG_CWENPP_Live');
+    var nCWENPPDiff        = wb.names.getItemOrNullObject('CEG_CWENPP_Diff');
+
+    [nFinancingScenario, nNPVPaste, nNPVCopy, nCAFDPaste, nCAFDCopy,
+     nCWENPPHC, nCWENPPLive, nCWENPPDiff].forEach(function (n) { n.load('isNullObject'); });
+
+    return context.sync().then(function () {
+      var missing = [];
+      if (nFinancingScenario.isNullObject) missing.push('CEG_FinancingScenario');
+      if (nNPVPaste.isNullObject)          missing.push('CEG_MerchantNPVPaste');
+      if (nNPVCopy.isNullObject)           missing.push('CEG_MerchantNPVCopy');
+      if (nCAFDPaste.isNullObject)         missing.push('CEG_MerchantCAFDPaste');
+      if (nCAFDCopy.isNullObject)          missing.push('CEG_MerchantCAFDCopy');
+      if (nCWENPPHC.isNullObject)          missing.push('CEG_CWENPP_HC');
+      if (nCWENPPLive.isNullObject)        missing.push('CEG_CWENPP_Live');
+      if (nCWENPPDiff.isNullObject)        missing.push('CEG_CWENPP_Diff');
+
+      if (missing.length > 0) {
+        writeLog('Solve CWEN: Missing named range(s): ' + missing.join(', '), 'error');
+        return;
+      }
+
+      writeLog('Solve CWEN: Solving CWEN Investment…', 'info');
+      nFinancingScenario.getRange().values = [[5]];
+      return context.sync().then(function () { ok = true; });
+    });
+  })
+
+  // Step 2: solve flip date
+  .then(function () {
+    if (!ok) return;
+    return findTEPshipFlipDate();
+  })
+
+  // Step 3: convergence loop
+  .then(function () {
+    if (!ok) return;
+    return Excel.run(function (context) {
+      var wb      = context.workbook;
+      var rDiff     = wb.names.getItem('CEG_CWENPP_Diff').getRange();
+      var rNPVPaste = wb.names.getItem('CEG_MerchantNPVPaste').getRange();
+      var rNPVCopy  = wb.names.getItem('CEG_MerchantNPVCopy').getRange();
+      var rCAFDPaste = wb.names.getItem('CEG_MerchantCAFDPaste').getRange();
+      var rCAFDCopy  = wb.names.getItem('CEG_MerchantCAFDCopy').getRange();
+      var rHC       = wb.names.getItem('CEG_CWENPP_HC').getRange();
+      var rLive     = wb.names.getItem('CEG_CWENPP_Live').getRange();
+
+      return _solveCWENLoop(context,
+        rDiff, rNPVPaste, rNPVCopy, rCAFDPaste, rCAFDCopy, rHC, rLive, 0, MAX_ITER);
+    });
+  })
+
+  .catch(function (error) {
+    writeLog('Solve CWEN error: ' + error.message, 'error');
+  })
+  .then(function () {
+    writeLog('Solve CWEN Investment: completed in ' + ((Date.now() - t0) / 1000).toFixed(2) + 's.', 'info');
+  });
+}
+
+// Loop helper: each iteration copies NPV, CAFD, and CWENPP Live → HC/Paste
+// until CEG_CWENPP_Diff = 0.
+function _solveCWENLoop(context, rDiff, rNPVPaste, rNPVCopy, rCAFDPaste, rCAFDCopy, rHC, rLive, iter, maxIter) {
+  if (iter >= maxIter) {
+    writeLog('Solve CWEN: Did not converge after ' + maxIter + ' iterations.', 'error');
+    return Promise.resolve();
+  }
+
+  rDiff.load('values');
+  return context.sync().then(function () {
+    var diff = rDiff.values[0][0];
+
+    if (iter === 0 || iter % 5 === 0) {
+      writeLog('Solve CWEN [iter ' + iter + ']: CEG_CWENPP_Diff = ' + diff, 'info');
+    }
+
+    if (diff === 0) {
+      writeLog('Solve CWEN: Converged in ' + iter + ' iteration(s).', 'success');
+      return;
+    }
+
+    rNPVCopy.load('values');
+    rCAFDCopy.load('values');
+    rLive.load('values');
+    return context.sync().then(function () {
+      rNPVPaste.values  = rNPVCopy.values;
+      rCAFDPaste.values = rCAFDCopy.values;
+      rHC.values        = rLive.values;
+      return context.sync().then(function () {
+        return _solveCWENLoop(context,
+          rDiff, rNPVPaste, rNPVCopy, rCAFDPaste, rCAFDCopy, rHC, rLive,
+          iter + 1, maxIter);
+      });
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// COMMAND — Solve Third-Party CE Investment
+// Port of CashEquity.SolveCE2().
+//
+// Sets CEG_FinancingScenario = 6, solves the flip date, then iterates
+// CEG_CE2PP_HC ← CEG_CE2PP_Live until CEG_CE2PP_Diff = 0.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export function solveCE2() {
+  var MAX_ITER = 50;
+  var t0 = Date.now();
+  var ok = false;
+
+  // Step 1: validate ranges, set calculation and scenario
+  return Excel.run(function (context) {
+    var wb = context.workbook;
+    wb.application.calculationMode = Excel.CalculationMode.automatic;
+
+    var nFinancingScenario = wb.names.getItemOrNullObject('CEG_FinancingScenario');
+    var nCE2PPHC           = wb.names.getItemOrNullObject('CEG_CE2PP_HC');
+    var nCE2PPLive         = wb.names.getItemOrNullObject('CEG_CE2PP_Live');
+    var nCE2PPDiff         = wb.names.getItemOrNullObject('CEG_CE2PP_Diff');
+
+    [nFinancingScenario, nCE2PPHC, nCE2PPLive, nCE2PPDiff]
+      .forEach(function (n) { n.load('isNullObject'); });
+
+    return context.sync().then(function () {
+      var missing = [];
+      if (nFinancingScenario.isNullObject) missing.push('CEG_FinancingScenario');
+      if (nCE2PPHC.isNullObject)           missing.push('CEG_CE2PP_HC');
+      if (nCE2PPLive.isNullObject)         missing.push('CEG_CE2PP_Live');
+      if (nCE2PPDiff.isNullObject)         missing.push('CEG_CE2PP_Diff');
+
+      if (missing.length > 0) {
+        writeLog('Solve CE2: Missing named range(s): ' + missing.join(', '), 'error');
+        return;
+      }
+
+      writeLog('Solve CE2: Solving Third-Party CE Investment…', 'info');
+      nFinancingScenario.getRange().values = [[6]];
+      return context.sync().then(function () { ok = true; });
+    });
+  })
+
+  // Step 2: solve flip date
+  .then(function () {
+    if (!ok) return;
+    return findTEPshipFlipDate();
+  })
+
+  // Step 3: convergence loop
+  .then(function () {
+    if (!ok) return;
+    return Excel.run(function (context) {
+      var wb    = context.workbook;
+      var rDiff = wb.names.getItem('CEG_CE2PP_Diff').getRange();
+      var rHC   = wb.names.getItem('CEG_CE2PP_HC').getRange();
+      var rLive = wb.names.getItem('CEG_CE2PP_Live').getRange();
+
+      return _solveCE2Loop(context, rDiff, rHC, rLive, 0, MAX_ITER);
+    });
+  })
+
+  .catch(function (error) {
+    writeLog('Solve CE2 error: ' + error.message, 'error');
+  })
+  .then(function () {
+    writeLog('Solve Third-Party CE Investment: completed in ' + ((Date.now() - t0) / 1000).toFixed(2) + 's.', 'info');
+  });
+}
+
+// Loop helper: copies CEG_CE2PP_Live → CEG_CE2PP_HC each iteration
+// until CEG_CE2PP_Diff = 0.
+function _solveCE2Loop(context, rDiff, rHC, rLive, iter, maxIter) {
+  if (iter >= maxIter) {
+    writeLog('Solve CE2: Did not converge after ' + maxIter + ' iterations.', 'error');
+    return Promise.resolve();
+  }
+
+  rDiff.load('values');
+  return context.sync().then(function () {
+    var diff = rDiff.values[0][0];
+
+    if (iter === 0 || iter % 5 === 0) {
+      writeLog('Solve CE2 [iter ' + iter + ']: CEG_CE2PP_Diff = ' + diff, 'info');
+    }
+
+    if (diff === 0) {
+      writeLog('Solve CE2: Converged in ' + iter + ' iteration(s).', 'success');
+      return;
+    }
+
+    rLive.load('values');
+    return context.sync().then(function () {
+      rHC.values = rLive.values;
+      return context.sync().then(function () {
+        return _solveCE2Loop(context, rDiff, rHC, rLive, iter + 1, maxIter);
+      });
+    });
+  });
+}
+
 // Loop helper: iterates CEG_PrincipalHC ← CEG_PrincipalLive and
 // CEG_SweepMiniPermCap ← CEG_SweepMiniPermCap_Guess each iteration until
 // BOTH CEG_PrincipalDiff = 0 AND CEG_SweepMiniPermCap_Diff = 0.
