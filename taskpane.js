@@ -8,6 +8,8 @@ Office.onReady(function (info) {
   if (info.host === Office.HostType.Excel) {
     document.getElementById('clearLogBtn').addEventListener('click', clearLog);
     document.getElementById('checkModelBtn').addEventListener('click', checkModel);
+    document.getElementById('solveTEUpfrontBtn').addEventListener('click', solveTEUpfront);
+    document.getElementById('flipDateBtn').addEventListener('click', flipDate);
     showEmptyState();
   }
 });

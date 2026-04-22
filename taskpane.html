@@ -19,6 +19,14 @@
                 title="Checks whether this workbook is a Clearway Project Financial Model.">
           Check for Clearway Project Financial Model
         </button>
+        <button id="solveTEUpfrontBtn" class="cmd-btn"
+                title="Sets CEG_FinancingScenario, pastes baselines, then iterates CEG_TEUpfront_HC ← CEG_TEUpfront_Live until CEG_TEUpfront_Diff = 0.">
+          Solve TE Upfront
+        </button>
+        <button id="flipDateBtn" class="cmd-btn"
+                title="Solves for the tax equity flip date by iterating CEG_FlipDate via CEG_FlipGuess until CEG_FlipIRR_Live crosses the target.">
+          Flip Date Solve
+        </button>
       </div>
     </section>
 
