@@ -1121,3 +1121,151 @@ function _sweepCapLoop(context, rPrincipalDiff, rPrincipalHC, rPrincipalLive, rS
     });
   });
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// COMMAND — Solve CapEx Circularity
+// Port of ProjectCosts.CapExCircularitySolve().
+//
+// Switches to manual calculation, then iterates:
+//   CEG_CF_TakeOut_Paste              ← CEG_CF_TakeOut_Copy
+//   CEG_TCInsuranceHCValues           ← CEG_TCInsuranceLiveValues
+//   CEG_CapEx.ConstructionCosts.Paste ← CEG_CapEx.ConstructionCosts.Copy
+// followed by a full manual recalculate each iteration, until both
+// CEG_Capex.ConstructionCostDelta and CEG_CF_TakeOut_Diff are <=
+// CEG_General.CircularityDeltaPrecision. Restores automatic calculation on exit.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export function solveCapExCircularity() {
+  var MAX_ITER = 50;
+  var t0 = Date.now();
+
+  return Excel.run(function (context) {
+    var wb = context.workbook;
+    wb.application.calculationMode = Excel.CalculationMode.automatic;
+
+    var nCostDelta            = wb.names.getItemOrNullObject('CEG_Capex.ConstructionCostDelta');
+    var nTakeOutDiff          = wb.names.getItemOrNullObject('CEG_CF_TakeOut_Diff');
+    var nPrecision            = wb.names.getItemOrNullObject('CEG_General.CircularityDeltaPrecision');
+    var nTakeOutPaste         = wb.names.getItemOrNullObject('CEG_CF_TakeOut_Paste');
+    var nTakeOutCopy          = wb.names.getItemOrNullObject('CEG_CF_TakeOut_Copy');
+    var nTCInsuranceHC        = wb.names.getItemOrNullObject('CEG_TCInsuranceHCValues');
+    var nTCInsuranceLive      = wb.names.getItemOrNullObject('CEG_TCInsuranceLiveValues');
+    var nConstructionPaste    = wb.names.getItemOrNullObject('CEG_CapEx.ConstructionCosts.Paste');
+    var nConstructionCopy     = wb.names.getItemOrNullObject('CEG_CapEx.ConstructionCosts.Copy');
+
+    [nCostDelta, nTakeOutDiff, nPrecision, nTakeOutPaste, nTakeOutCopy,
+     nTCInsuranceHC, nTCInsuranceLive, nConstructionPaste, nConstructionCopy]
+      .forEach(function (n) { n.load('isNullObject'); });
+
+    return context.sync().then(function () {
+      var missing = [];
+      if (nCostDelta.isNullObject)         missing.push('CEG_Capex.ConstructionCostDelta');
+      if (nTakeOutDiff.isNullObject)        missing.push('CEG_CF_TakeOut_Diff');
+      if (nPrecision.isNullObject)          missing.push('CEG_General.CircularityDeltaPrecision');
+      if (nTakeOutPaste.isNullObject)       missing.push('CEG_CF_TakeOut_Paste');
+      if (nTakeOutCopy.isNullObject)        missing.push('CEG_CF_TakeOut_Copy');
+      if (nTCInsuranceHC.isNullObject)      missing.push('CEG_TCInsuranceHCValues');
+      if (nTCInsuranceLive.isNullObject)    missing.push('CEG_TCInsuranceLiveValues');
+      if (nConstructionPaste.isNullObject)  missing.push('CEG_CapEx.ConstructionCosts.Paste');
+      if (nConstructionCopy.isNullObject)   missing.push('CEG_CapEx.ConstructionCosts.Copy');
+
+      if (missing.length > 0) {
+        writeLog('Solve CapEx Circularity: Missing named range(s): ' + missing.join(', '), 'error');
+        return;
+      }
+
+      writeLog('Solve CapEx Circularity: Solving Construction Financing/CapEx…', 'info');
+
+      // Read precision value once — it is static throughout the loop
+      var rPrecision = nPrecision.getRange();
+      rPrecision.load('values');
+
+      return context.sync().then(function () {
+        var precision = rPrecision.values[0][0];
+
+        // Switch to manual calculation (matches VBA)
+        wb.application.calculationMode = Excel.CalculationMode.manual;
+
+        return context.sync().then(function () {
+          return _solveCapExCircularityLoop(
+            context, wb,
+            nCostDelta.getRange(),
+            nTakeOutDiff.getRange(),
+            precision,
+            nTakeOutPaste.getRange(),
+            nTakeOutCopy.getRange(),
+            nTCInsuranceHC.getRange(),
+            nTCInsuranceLive.getRange(),
+            nConstructionPaste.getRange(),
+            nConstructionCopy.getRange(),
+            0, MAX_ITER
+          ).then(function () {
+            // Restore automatic calculation (matches VBA)
+            wb.application.calculationMode = Excel.CalculationMode.automatic;
+            return context.sync();
+          });
+        });
+      });
+    });
+  })
+  .catch(function (error) {
+    writeLog('Solve CapEx Circularity error: ' + error.message, 'error');
+  })
+  .then(function () {
+    writeLog('Solve CapEx Circularity: completed in ' + ((Date.now() - t0) / 1000).toFixed(2) + 's.', 'info');
+  });
+}
+
+// Loop helper: each iteration pastes TakeOut, TCInsurance, and ConstructionCosts,
+// then triggers a full manual recalculate, until both delta values <= precision.
+function _solveCapExCircularityLoop(context, wb, rCostDelta, rTakeOutDiff, precision,
+    rTakeOutPaste, rTakeOutCopy, rTCInsuranceHC, rTCInsuranceLive,
+    rConstructionPaste, rConstructionCopy, iter, maxIter) {
+
+  if (iter >= maxIter) {
+    writeLog('Solve CapEx Circularity: Did not converge after ' + maxIter + ' iterations.', 'error');
+    return Promise.resolve();
+  }
+
+  rCostDelta.load('values');
+  rTakeOutDiff.load('values');
+
+  return context.sync().then(function () {
+    var costDelta   = rCostDelta.values[0][0];
+    var takeOutDiff = rTakeOutDiff.values[0][0];
+
+    if (iter === 0 || iter % 5 === 0) {
+      writeLog('Solve CapEx Circularity [iter ' + iter + ']: ConstructionCostDelta = ' + costDelta + ', TakeOutDiff = ' + takeOutDiff, 'info');
+    }
+
+    // Stop when both deltas are within the precision threshold (matches VBA)
+    if (costDelta <= precision && takeOutDiff <= precision) {
+      writeLog('Solve CapEx Circularity: Converged in ' + iter + ' iteration(s).', 'success');
+      return;
+    }
+
+    rTakeOutCopy.load('values');
+    rTCInsuranceLive.load('values');
+    rConstructionCopy.load('values');
+
+    return context.sync().then(function () {
+      rTakeOutPaste.values      = rTakeOutCopy.values;
+      rTCInsuranceHC.values     = rTCInsuranceLive.values;
+      rConstructionPaste.values = rConstructionCopy.values;
+
+      // Trigger a full recalculation (matches VBA's Application.Calculate)
+      wb.application.calculate(Excel.CalculationType.full);
+
+      return context.sync().then(function () {
+        return _solveCapExCircularityLoop(
+          context, wb,
+          rCostDelta, rTakeOutDiff, precision,
+          rTakeOutPaste, rTakeOutCopy,
+          rTCInsuranceHC, rTCInsuranceLive,
+          rConstructionPaste, rConstructionCopy,
+          iter + 1, maxIter
+        );
+      });
+    });
+  });
+}
