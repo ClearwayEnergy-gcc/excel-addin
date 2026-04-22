@@ -1,14 +1,16 @@
 // commands.js — Clearway Project Financial Model Add-in
 //
-// Command functions triggered by task-pane buttons.
-// Relies on writeLog() defined in taskpane.js (shared global scope).
+// Exported functions are the public command API (called from taskpane.js).
+// Private helpers (_prefixed) are module-scoped and unreachable from outside.
+
+import { writeLog } from './log.js';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // COMMAND — Check for Clearway Project Financial Model
 // Looks for the named range "CEG_ModelTemplateVersion" in the workbook.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function checkModel() {
+export function checkModel() {
   Excel.run(function (context) {
     var item = context.workbook.names.getItemOrNullObject('CEG_ModelTemplateVersion');
     item.load('isNullObject,value');
@@ -33,13 +35,9 @@ function checkModel() {
 // Sets calculation to automatic, initialises scenario/baseline ranges, sets
 // CEG_FlipDate to CEG_TargetFlip, then iterates CEG_TEUpfront_HC ← CEG_TEUpfront_Live
 // until CEG_TEUpfront_Diff = 0.
-//
-// Named-range notes (VBA used worksheet-object qualifiers):
-//   CEG_FinancingScenario — accessed via ScenarioManager sheet in VBA
-//   CEG_TargetFlip        — accessed via FinancingInputs sheet in VBA
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function solveTEUpfront() {
+export function solveTEUpfront() {
   var MAX_ITER = 1000;
 
   Excel.run(function (context) {
@@ -178,14 +176,9 @@ function _solveTEUpfrontLoop(context, rDiff, rHC, rLive, iter, maxIter) {
 // then walks CEG_FlipDate forward or backward via CEG_FlipGuess until
 // CEG_FlipIRR_Live crosses the CEG_FlipIRR target. If CEG_FlipProrateOn is true,
 // subsequently solves for CEG_FlipProrate.
-//
-// Named-range notes (VBA used worksheet-object qualifiers):
-//   CEG_TEStructure — accessed via FinancingInputs sheet in VBA
-//   CEG_FlipIRR     — accessed via FinancingInputs sheet in VBA
-//   CEG_TargetFlip  — accessed via FinancingInputs sheet in VBA
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function flipDate() {
+export function flipDate() {
   var MAX_ITER = 10000;
 
   Excel.run(function (context) {
@@ -358,14 +351,12 @@ function _flipDateWalkBack(context, rFlipDate, rFlipGuess, rFlipIRRLive, irrTarg
   rFlipDate.load('values');
 
   return context.sync().then(function () {
-    var irrLive   = rFlipIRRLive.values[0][0];
-    var guess     = rFlipGuess.values[0][0];
-    var current   = rFlipDate.values[0][0];
+    var irrLive = rFlipIRRLive.values[0][0];
+    var guess   = rFlipGuess.values[0][0];
+    var current = rFlipDate.values[0][0];
 
-    // Stop: IRR now at or below target, or no more earlier dates to try
     if (irrLive <= irrTarget || _valuesEqual(guess, current)) {
       writeLog('Flip Date: Walk-back complete — setting final flip date.', 'info');
-      // One extra assignment after the loop (mirrors VBA)
       rFlipDate.values = [[guess]];
       return context.sync().then(function () {
         writeLog('Flip Date: Flip date found.', 'success');
@@ -396,7 +387,6 @@ function _flipDateWalkForward(context, rFlipDate, rFlipGuess, rFlipIRRLive, irrT
     var guess   = rFlipGuess.values[0][0];
     var current = rFlipDate.values[0][0];
 
-    // Stop: IRR has met or exceeded target, or no more later dates to try
     if (irrLive >= irrTarget || _valuesEqual(guess, current)) {
       writeLog('Flip Date: Flip date found.', 'success');
       return;
@@ -433,7 +423,6 @@ function _flipDateProrateLoop(context, rProrate, rProrateGuess, rProrateRuledOut
     rProrate.values = [[guess]];
 
     return context.sync().then(function () {
-      // Update ruled-out actuals after prorate is set (matches VBA ordering)
       rProrateRuledOutCalc.load('values');
       return context.sync().then(function () {
         rProrateRuledOutActual.values = rProrateRuledOutCalc.values;
