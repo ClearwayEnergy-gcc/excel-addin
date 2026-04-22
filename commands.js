@@ -181,7 +181,7 @@ function _solveTEUpfrontLoop(context, rDiff, rHC, rLive, iter, maxIter) {
 export function findTEPshipFlipDate() {
   var MAX_ITER = 50;
 
-  Excel.run(function (context) {
+  return Excel.run(function (context) {
     var wb = context.workbook;
     wb.application.calculationMode = Excel.CalculationMode.automatic;
 
