@@ -27,6 +27,14 @@
                 title="Solves for the tax equity flip date by iterating CEG_FlipDate via CEG_FlipGuess until CEG_FlipIRR_Live crosses the target.">
           Find TE Partnership Flip Date
         </button>
+        <button id="termDebtSolveBtn" class="cmd-btn"
+                title="Pastes CFADS for each active scenario, optionally solves the flip date, then sizes the term debt.">
+          Term Debt Solve
+        </button>
+        <button id="iterateTermDebtBtn" class="cmd-btn"
+                title="Sizes the term loan by iterating CEG_PrincipalHC ← CEG_PrincipalLive until CEG_PrincipalDiff = 0 (with sweep cap if active).">
+          Iterate Term Debt
+        </button>
       </div>
     </section>
 

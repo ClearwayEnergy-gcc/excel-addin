@@ -443,3 +443,435 @@ function _valuesEqual(a, b) {
   if (a instanceof Date && b instanceof Date) return a.getTime() === b.getTime();
   return a === b;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// COMMAND — Term Debt Solve
+// Port of TermDebt.TermDebtSolve().
+//
+// If CEG_TDActive is false: clears CEG_PrincipalHC and exits.
+// Otherwise: clears the sweep mini-perm cap, pastes CFADS for each active
+// scenario (optionally solving the flip date first), then calls iterateTermDebt
+// to size the loan.
+//
+// Named-range notes (VBA used worksheet-object qualifiers):
+//   CEG_TDActive, CEG_ProjectDebt, CEG_SweepActive — accessed via FinancingInputs in VBA
+//   CEG_Scenario2/3/4Active, CEG_FinancingScenario  — accessed via ScenarioManager in VBA
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export function termDebtSolve() {
+  var flags = null; // shared across the promise chain
+
+  // ── Step 1: validate ranges, check TDActive, read all scenario flags ───────
+  return Excel.run(function (context) {
+    var wb = context.workbook;
+    wb.application.calculationMode = Excel.CalculationMode.automatic;
+
+    var nTDActive         = wb.names.getItemOrNullObject('CEG_TDActive');
+    var nPrincipalHC      = wb.names.getItemOrNullObject('CEG_PrincipalHC');
+    var nSweepMiniPermCap = wb.names.getItemOrNullObject('CEG_SweepMiniPermCap');
+    var nProjectDebt      = wb.names.getItemOrNullObject('CEG_ProjectDebt');
+    var nSweepActive      = wb.names.getItemOrNullObject('CEG_SweepActive');
+    var nScenario2Active  = wb.names.getItemOrNullObject('CEG_Scenario2Active');
+    var nScenario3Active  = wb.names.getItemOrNullObject('CEG_Scenario3Active');
+    var nScenario4Active  = wb.names.getItemOrNullObject('CEG_Scenario4Active');
+    var nFinancingScenario = wb.names.getItemOrNullObject('CEG_FinancingScenario');
+    var nP50CFADS         = wb.names.getItemOrNullObject('CEG_P50CFADS');
+    var nP50CFADSCopy     = wb.names.getItemOrNullObject('CEG_P50CFADSCopy');
+    var nP99CFADS         = wb.names.getItemOrNullObject('CEG_P99CFADS');
+    var nP99CFADSCopy     = wb.names.getItemOrNullObject('CEG_P99CFADSCopy');
+    var nSweepCFADS       = wb.names.getItemOrNullObject('CEG_SweepCFADS');
+    var nSweepCFADSCopy   = wb.names.getItemOrNullObject('CEG_SweepCFADSCopy');
+    var nPrincipalDiff    = wb.names.getItemOrNullObject('CEG_PrincipalDiff');
+    var nPrincipalLive    = wb.names.getItemOrNullObject('CEG_PrincipalLive');
+    var nSweepDiff        = wb.names.getItemOrNullObject('CEG_SweepMiniPermCap_Diff');
+    var nSweepGuess       = wb.names.getItemOrNullObject('CEG_SweepMiniPermCap_Guess');
+
+    [nTDActive, nPrincipalHC, nSweepMiniPermCap, nProjectDebt, nSweepActive,
+     nScenario2Active, nScenario3Active, nScenario4Active, nFinancingScenario,
+     nP50CFADS, nP50CFADSCopy, nP99CFADS, nP99CFADSCopy,
+     nSweepCFADS, nSweepCFADSCopy, nPrincipalDiff, nPrincipalLive,
+     nSweepDiff, nSweepGuess].forEach(function (n) { n.load('isNullObject'); });
+
+    return context.sync().then(function () {
+      var missing = [];
+      if (nTDActive.isNullObject)          missing.push('CEG_TDActive');
+      if (nPrincipalHC.isNullObject)       missing.push('CEG_PrincipalHC');
+      if (nSweepMiniPermCap.isNullObject)  missing.push('CEG_SweepMiniPermCap');
+      if (nProjectDebt.isNullObject)       missing.push('CEG_ProjectDebt');
+      if (nSweepActive.isNullObject)       missing.push('CEG_SweepActive');
+      if (nScenario2Active.isNullObject)   missing.push('CEG_Scenario2Active');
+      if (nScenario3Active.isNullObject)   missing.push('CEG_Scenario3Active');
+      if (nScenario4Active.isNullObject)   missing.push('CEG_Scenario4Active');
+      if (nFinancingScenario.isNullObject) missing.push('CEG_FinancingScenario');
+      if (nP50CFADS.isNullObject)          missing.push('CEG_P50CFADS');
+      if (nP50CFADSCopy.isNullObject)      missing.push('CEG_P50CFADSCopy');
+      if (nP99CFADS.isNullObject)          missing.push('CEG_P99CFADS');
+      if (nP99CFADSCopy.isNullObject)      missing.push('CEG_P99CFADSCopy');
+      if (nSweepCFADS.isNullObject)        missing.push('CEG_SweepCFADS');
+      if (nSweepCFADSCopy.isNullObject)    missing.push('CEG_SweepCFADSCopy');
+      if (nPrincipalDiff.isNullObject)     missing.push('CEG_PrincipalDiff');
+      if (nPrincipalLive.isNullObject)     missing.push('CEG_PrincipalLive');
+      if (nSweepDiff.isNullObject)         missing.push('CEG_SweepMiniPermCap_Diff');
+      if (nSweepGuess.isNullObject)        missing.push('CEG_SweepMiniPermCap_Guess');
+
+      if (missing.length > 0) {
+        writeLog('Term Debt Solve: Missing named range(s): ' + missing.join(', '), 'error');
+        return null;
+      }
+
+      // Check TDActive
+      var rTDActive = nTDActive.getRange();
+      rTDActive.load('values');
+
+      return context.sync().then(function () {
+        if (!rTDActive.values[0][0]) {
+          nPrincipalHC.getRange().clear(Excel.ClearApplyTo.contents);
+          return context.sync().then(function () {
+            writeLog('Term Debt Solve: Term loan inactive (CEG_TDActive = false).', 'info');
+            return null;
+          });
+        }
+
+        // Clear sweep mini-perm cap
+        nSweepMiniPermCap.getRange().clear(Excel.ClearApplyTo.contents);
+
+        // Read all scenario flags
+        var rProjectDebt     = nProjectDebt.getRange();
+        var rSweepActive     = nSweepActive.getRange();
+        var rScenario2Active = nScenario2Active.getRange();
+        var rScenario3Active = nScenario3Active.getRange();
+        var rScenario4Active = nScenario4Active.getRange();
+        rProjectDebt.load('values');
+        rSweepActive.load('values');
+        rScenario2Active.load('values');
+        rScenario3Active.load('values');
+        rScenario4Active.load('values');
+
+        return context.sync().then(function () {
+          var projectDebt     = rProjectDebt.values[0][0];
+          var sweepActive     = rSweepActive.values[0][0];
+          var scenario2Active = rScenario2Active.values[0][0];
+          var scenario3Active = rScenario3Active.values[0][0];
+          var scenario4Active = rScenario4Active.values[0][0];
+
+          writeLog('Term Debt Solve: Solving Term Debt — ' + projectDebt, 'info');
+
+          // If sweep inactive, clear sweep mini-perm cap again (matches VBA)
+          if (!sweepActive) {
+            nSweepMiniPermCap.getRange().clear(Excel.ClearApplyTo.contents);
+          }
+
+          return context.sync().then(function () {
+            return {
+              projectDebt:     projectDebt,
+              sweepActive:     sweepActive,
+              scenario2Active: scenario2Active,
+              scenario3Active: scenario3Active,
+              scenario4Active: scenario4Active
+            };
+          });
+        });
+      });
+    });
+  })
+
+  // ── Step 2: Scenario 2 — P50 CFADS ────────────────────────────────────────
+  .then(function (f) {
+    if (!f) return;
+    flags = f;
+    if (!flags.scenario2Active) return;
+
+    writeLog('Term Debt Solve: Pasting P50 CFADS (scenario 2)…', 'info');
+    return Excel.run(function (context) {
+      context.workbook.names.getItem('CEG_FinancingScenario').getRange().values = [[2]];
+      return context.sync();
+    })
+    .then(function () {
+      if (flags.projectDebt !== 'Project') return findTEPshipFlipDate();
+    })
+    .then(function () {
+      return Excel.run(function (context) {
+        var rCopy = context.workbook.names.getItem('CEG_P50CFADSCopy').getRange();
+        rCopy.load('values');
+        return context.sync().then(function () {
+          context.workbook.names.getItem('CEG_P50CFADS').getRange().values = rCopy.values;
+          return context.sync();
+        });
+      });
+    });
+  })
+
+  // ── Step 3: Scenario 3 — P99 CFADS ────────────────────────────────────────
+  .then(function () {
+    if (!flags) return;
+    if (!flags.scenario3Active) return;
+
+    writeLog('Term Debt Solve: Pasting P99 CFADS (scenario 3)…', 'info');
+    return Excel.run(function (context) {
+      context.workbook.names.getItem('CEG_FinancingScenario').getRange().values = [[3]];
+      return context.sync();
+    })
+    .then(function () {
+      if (flags.projectDebt !== 'Project') return findTEPshipFlipDate();
+    })
+    .then(function () {
+      return Excel.run(function (context) {
+        var rCopy = context.workbook.names.getItem('CEG_P99CFADSCopy').getRange();
+        rCopy.load('values');
+        return context.sync().then(function () {
+          context.workbook.names.getItem('CEG_P99CFADS').getRange().values = rCopy.values;
+          return context.sync();
+        });
+      });
+    });
+  })
+
+  // ── Step 4: Scenario 4 — Sweep CFADS (only if sweep active) ───────────────
+  .then(function () {
+    if (!flags) return;
+    if (!flags.scenario4Active || !flags.sweepActive) return;
+
+    writeLog('Term Debt Solve: Pasting Sweep CFADS (scenario 4)…', 'info');
+    return Excel.run(function (context) {
+      context.workbook.names.getItem('CEG_FinancingScenario').getRange().values = [[4]];
+      return context.sync();
+    })
+    .then(function () {
+      if (flags.projectDebt !== 'Project') return findTEPshipFlipDate();
+    })
+    .then(function () {
+      return Excel.run(function (context) {
+        var rCopy = context.workbook.names.getItem('CEG_SweepCFADSCopy').getRange();
+        rCopy.load('values');
+        return context.sync().then(function () {
+          context.workbook.names.getItem('CEG_SweepCFADS').getRange().values = rCopy.values;
+          return context.sync();
+        });
+      });
+    });
+  })
+
+  // ── Step 5: Size the debt ──────────────────────────────────────────────────
+  .then(function () {
+    if (!flags) return;
+    writeLog('Term Debt Solve: Sizing term debt…', 'info');
+    return iterateTermDebt();
+  })
+
+  .catch(function (error) {
+    writeLog('Term Debt Solve error: ' + error.message, 'error');
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// COMMAND — Iterate Term Debt
+// Port of TermDebt.IterateTermDebt().
+//
+// Reads CEG_SweepActive and dispatches to the appropriate sizing routine:
+// sweep-cap + debt sizing if active, plain debt sizing otherwise.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export function iterateTermDebt() {
+  return Excel.run(function (context) {
+    var nSweepActive = context.workbook.names.getItemOrNullObject('CEG_SweepActive');
+    nSweepActive.load('isNullObject');
+
+    return context.sync().then(function () {
+      if (nSweepActive.isNullObject) {
+        writeLog('Iterate Term Debt: Missing CEG_SweepActive.', 'error');
+        return null;
+      }
+      var rSweepActive = nSweepActive.getRange();
+      rSweepActive.load('values');
+      return context.sync().then(function () {
+        return rSweepActive.values[0][0];
+      });
+    });
+  })
+  .then(function (sweepActive) {
+    if (sweepActive === null) return;
+    if (sweepActive) {
+      return _sweepCapAndDebtSizing();
+    } else {
+      return _debtSizing();
+    }
+  })
+  .catch(function (error) {
+    writeLog('Iterate Term Debt error: ' + error.message, 'error');
+  });
+}
+
+// Debt sizing helper: clears CEG_PrincipalHC (if bClear), then iterates
+// CEG_PrincipalHC ← CEG_PrincipalLive until CEG_PrincipalDiff = 0.
+// Port of TermDebt.DebtSizing().
+function _debtSizing(bClear) {
+  if (bClear === undefined) bClear = true;
+  var MAX_ITER = 1000;
+
+  return Excel.run(function (context) {
+    var wb             = context.workbook;
+    var nPrincipalHC   = wb.names.getItemOrNullObject('CEG_PrincipalHC');
+    var nPrincipalDiff = wb.names.getItemOrNullObject('CEG_PrincipalDiff');
+    var nPrincipalLive = wb.names.getItemOrNullObject('CEG_PrincipalLive');
+
+    nPrincipalHC.load('isNullObject');
+    nPrincipalDiff.load('isNullObject');
+    nPrincipalLive.load('isNullObject');
+
+    return context.sync().then(function () {
+      var missing = [];
+      if (nPrincipalHC.isNullObject)   missing.push('CEG_PrincipalHC');
+      if (nPrincipalDiff.isNullObject)  missing.push('CEG_PrincipalDiff');
+      if (nPrincipalLive.isNullObject)  missing.push('CEG_PrincipalLive');
+      if (missing.length > 0) {
+        writeLog('Debt Sizing: Missing named range(s): ' + missing.join(', '), 'error');
+        return;
+      }
+
+      var rHC   = nPrincipalHC.getRange();
+      var rDiff = nPrincipalDiff.getRange();
+      var rLive = nPrincipalLive.getRange();
+
+      if (!bClear) {
+        return _debtSizingLoop(context, rDiff, rHC, rLive, 0, MAX_ITER);
+      }
+      rHC.clear(Excel.ClearApplyTo.contents);
+      return context.sync().then(function () {
+        return _debtSizingLoop(context, rDiff, rHC, rLive, 0, MAX_ITER);
+      });
+    });
+  })
+  .catch(function (error) {
+    writeLog('Debt Sizing error: ' + error.message, 'error');
+  });
+}
+
+// Loop helper: copies CEG_PrincipalLive → CEG_PrincipalHC each iteration
+// until CEG_PrincipalDiff = 0.
+function _debtSizingLoop(context, rDiff, rHC, rLive, iter, maxIter) {
+  if (iter >= maxIter) {
+    writeLog('Debt Sizing: Did not converge after ' + maxIter + ' iterations.', 'error');
+    return Promise.resolve();
+  }
+
+  rDiff.load('values');
+  return context.sync().then(function () {
+    var diff = rDiff.values[0][0];
+
+    if (iter === 0 || iter % 50 === 0) {
+      writeLog('Debt Sizing [iter ' + iter + ']: CEG_PrincipalDiff = ' + diff, 'info');
+    }
+
+    if (diff === 0) {
+      writeLog('Debt Sizing: Converged in ' + iter + ' iteration(s).', 'success');
+      return;
+    }
+
+    rLive.load('values');
+    return context.sync().then(function () {
+      rHC.values = rLive.values;
+      return context.sync().then(function () {
+        return _debtSizingLoop(context, rDiff, rHC, rLive, iter + 1, maxIter);
+      });
+    });
+  });
+}
+
+// Sweep cap + debt sizing helper: clears CEG_PrincipalHC and CEG_SweepMiniPermCap
+// (if bClear), then iterates both until CEG_PrincipalDiff = 0 AND
+// CEG_SweepMiniPermCap_Diff = 0. Port of TermDebt.SweepCapAndDebtSizing().
+function _sweepCapAndDebtSizing(bClear) {
+  if (bClear === undefined) bClear = true;
+  var MAX_ITER = 1000;
+
+  return Excel.run(function (context) {
+    var wb            = context.workbook;
+    var nPrincipalHC  = wb.names.getItemOrNullObject('CEG_PrincipalHC');
+    var nPrincipalDiff = wb.names.getItemOrNullObject('CEG_PrincipalDiff');
+    var nPrincipalLive = wb.names.getItemOrNullObject('CEG_PrincipalLive');
+    var nSweepHC      = wb.names.getItemOrNullObject('CEG_SweepMiniPermCap');
+    var nSweepDiff    = wb.names.getItemOrNullObject('CEG_SweepMiniPermCap_Diff');
+    var nSweepGuess   = wb.names.getItemOrNullObject('CEG_SweepMiniPermCap_Guess');
+
+    [nPrincipalHC, nPrincipalDiff, nPrincipalLive,
+     nSweepHC, nSweepDiff, nSweepGuess].forEach(function (n) { n.load('isNullObject'); });
+
+    return context.sync().then(function () {
+      var missing = [];
+      if (nPrincipalHC.isNullObject)   missing.push('CEG_PrincipalHC');
+      if (nPrincipalDiff.isNullObject)  missing.push('CEG_PrincipalDiff');
+      if (nPrincipalLive.isNullObject)  missing.push('CEG_PrincipalLive');
+      if (nSweepHC.isNullObject)        missing.push('CEG_SweepMiniPermCap');
+      if (nSweepDiff.isNullObject)      missing.push('CEG_SweepMiniPermCap_Diff');
+      if (nSweepGuess.isNullObject)     missing.push('CEG_SweepMiniPermCap_Guess');
+      if (missing.length > 0) {
+        writeLog('Sweep Cap & Debt Sizing: Missing named range(s): ' + missing.join(', '), 'error');
+        return;
+      }
+
+      var rPrincipalHC   = nPrincipalHC.getRange();
+      var rPrincipalDiff = nPrincipalDiff.getRange();
+      var rPrincipalLive = nPrincipalLive.getRange();
+      var rSweepHC       = nSweepHC.getRange();
+      var rSweepDiff     = nSweepDiff.getRange();
+      var rSweepGuess    = nSweepGuess.getRange();
+
+      if (!bClear) {
+        return _sweepCapLoop(context,
+          rPrincipalDiff, rPrincipalHC, rPrincipalLive,
+          rSweepDiff, rSweepHC, rSweepGuess, 0, MAX_ITER);
+      }
+      rPrincipalHC.clear(Excel.ClearApplyTo.contents);
+      rSweepHC.clear(Excel.ClearApplyTo.contents);
+      return context.sync().then(function () {
+        return _sweepCapLoop(context,
+          rPrincipalDiff, rPrincipalHC, rPrincipalLive,
+          rSweepDiff, rSweepHC, rSweepGuess, 0, MAX_ITER);
+      });
+    });
+  })
+  .catch(function (error) {
+    writeLog('Sweep Cap & Debt Sizing error: ' + error.message, 'error');
+  });
+}
+
+// Loop helper: iterates CEG_PrincipalHC ← CEG_PrincipalLive and
+// CEG_SweepMiniPermCap ← CEG_SweepMiniPermCap_Guess each iteration until
+// BOTH CEG_PrincipalDiff = 0 AND CEG_SweepMiniPermCap_Diff = 0.
+function _sweepCapLoop(context, rPrincipalDiff, rPrincipalHC, rPrincipalLive, rSweepDiff, rSweepHC, rSweepGuess, iter, maxIter) {
+  if (iter >= maxIter) {
+    writeLog('Sweep Cap & Debt Sizing: Did not converge after ' + maxIter + ' iterations.', 'error');
+    return Promise.resolve();
+  }
+
+  rPrincipalDiff.load('values');
+  rSweepDiff.load('values');
+
+  return context.sync().then(function () {
+    var principalDiff = rPrincipalDiff.values[0][0];
+    var sweepDiff     = rSweepDiff.values[0][0];
+
+    if (iter === 0 || iter % 50 === 0) {
+      writeLog('Sweep Cap & Debt Sizing [iter ' + iter + ']: PrincipalDiff = ' + principalDiff + ', SweepDiff = ' + sweepDiff, 'info');
+    }
+
+    // Both must be 0 to converge (matches VBA: "... = 0 And ... = 0")
+    if (principalDiff === 0 && sweepDiff === 0) {
+      writeLog('Sweep Cap & Debt Sizing: Converged in ' + iter + ' iteration(s).', 'success');
+      return;
+    }
+
+    rPrincipalLive.load('values');
+    rSweepGuess.load('values');
+    return context.sync().then(function () {
+      rPrincipalHC.values = rPrincipalLive.values;
+      rSweepHC.values     = rSweepGuess.values;
+      return context.sync().then(function () {
+        return _sweepCapLoop(context,
+          rPrincipalDiff, rPrincipalHC, rPrincipalLive,
+          rSweepDiff, rSweepHC, rSweepGuess,
+          iter + 1, maxIter);
+      });
+    });
+  });
+}
