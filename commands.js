@@ -186,9 +186,11 @@ function _solveTEIUpfrontInvestmentLoop(context, rDiff, rHC, rLive, iter, maxIte
 // subsequently solves for CEG_FlipProrate.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export function findTEPshipFlipDate() {
+// Private implementation — contains all the work, no error handling or timer.
+// Called directly by other commands (solveTermDebt, solveCWENUpfrontInvestment,
+// solveCE2UpfrontInvestment) so that errors propagate to the caller's .catch.
+function _findTEPshipFlipDateImpl() {
   var MAX_ITER = 50;
-  var t0 = Date.now();
 
   return Excel.run(function (context) {
     var wb = context.workbook;
@@ -339,7 +341,14 @@ export function findTEPshipFlipDate() {
         });
       });
     });
-  })
+  });
+}
+
+// Public export — wraps the impl with error handling and elapsed-time logging.
+// Called directly from the task-pane button.
+export function findTEPshipFlipDate() {
+  var t0 = Date.now();
+  return _findTEPshipFlipDateImpl()
   .catch(function (error) {
     writeLog('Flip Date error: ' + error.message, 'error');
   })
@@ -600,7 +609,7 @@ export function solveTermDebt() {
       return context.sync();
     })
     .then(function () {
-      if (flags.projectDebt !== 'Project') return findTEPshipFlipDate();
+      if (flags.projectDebt !== 'Project') return _findTEPshipFlipDateImpl();
     })
     .then(function () {
       return Excel.run(function (context) {
@@ -625,7 +634,7 @@ export function solveTermDebt() {
       return context.sync();
     })
     .then(function () {
-      if (flags.projectDebt !== 'Project') return findTEPshipFlipDate();
+      if (flags.projectDebt !== 'Project') return _findTEPshipFlipDateImpl();
     })
     .then(function () {
       return Excel.run(function (context) {
@@ -650,7 +659,7 @@ export function solveTermDebt() {
       return context.sync();
     })
     .then(function () {
-      if (flags.projectDebt !== 'Project') return findTEPshipFlipDate();
+      if (flags.projectDebt !== 'Project') return _findTEPshipFlipDateImpl();
     })
     .then(function () {
       return Excel.run(function (context) {
@@ -668,7 +677,7 @@ export function solveTermDebt() {
   .then(function () {
     if (!flags) return;
     writeLog('Term Debt Solve: Sizing term debt…', 'info');
-    return iterateTermDebt();
+    return _iterateTermDebtImpl();
   })
 
   .catch(function (error) {
@@ -687,8 +696,9 @@ export function solveTermDebt() {
 // sweep-cap + debt sizing if active, plain debt sizing otherwise.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export function iterateTermDebt() {
-  var t0 = Date.now();
+// Private implementation — contains all the work, no error handling or timer.
+// Called directly by solveTermDebt so that errors propagate to its .catch.
+function _iterateTermDebtImpl() {
   return Excel.run(function (context) {
     var nSweepActive = context.workbook.names.getItemOrNullObject('CEG_SweepActive');
     nSweepActive.load('isNullObject');
@@ -712,7 +722,14 @@ export function iterateTermDebt() {
     } else {
       return _debtSizing();
     }
-  })
+  });
+}
+
+// Public export — wraps the impl with error handling and elapsed-time logging.
+// Called directly from the task-pane button.
+export function iterateTermDebt() {
+  var t0 = Date.now();
+  return _iterateTermDebtImpl()
   .catch(function (error) {
     writeLog('Iterate Term Debt error: ' + error.message, 'error');
   })
@@ -913,7 +930,7 @@ export function solveCWENUpfrontInvestment() {
   // Step 2: solve flip date
   .then(function () {
     if (!ok) return;
-    return findTEPshipFlipDate();
+    return _findTEPshipFlipDateImpl();
   })
 
   // Step 3: convergence loop
@@ -1026,7 +1043,7 @@ export function solveCE2UpfrontInvestment() {
   // Step 2: solve flip date
   .then(function () {
     if (!ok) return;
-    return findTEPshipFlipDate();
+    return _findTEPshipFlipDateImpl();
   })
 
   // Step 3: convergence loop
