@@ -38,7 +38,7 @@ export function checkModel() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export function solveTEIUpfrontInvestment() {
-  var MAX_ITER = 1000;
+  var MAX_ITER = 50;
 
   Excel.run(function (context) {
     var wb = context.workbook;
@@ -148,7 +148,7 @@ function _solveTEUpfrontLoop(context, rDiff, rHC, rLive, iter, maxIter) {
   return context.sync().then(function () {
     var diff = rDiff.values[0][0];
 
-    if (iter === 0 || iter % 50 === 0) {
+    if (iter === 0 || iter % 5 === 0) {
       writeLog('Solve TE Upfront [iter ' + iter + ']: CEG_TEUpfront_Diff = ' + diff, 'info');
     }
 
@@ -179,7 +179,7 @@ function _solveTEUpfrontLoop(context, rDiff, rHC, rLive, iter, maxIter) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export function findTEPshipFlipDate() {
-  var MAX_ITER = 10000;
+  var MAX_ITER = 50;
 
   Excel.run(function (context) {
     var wb = context.workbook;
@@ -706,7 +706,7 @@ export function iterateTermDebt() {
 // Port of TermDebt.DebtSizing().
 function _debtSizing(bClear) {
   if (bClear === undefined) bClear = true;
-  var MAX_ITER = 1000;
+  var MAX_ITER = 50;
 
   return Excel.run(function (context) {
     var wb             = context.workbook;
@@ -758,7 +758,7 @@ function _debtSizingLoop(context, rDiff, rHC, rLive, iter, maxIter) {
   return context.sync().then(function () {
     var diff = rDiff.values[0][0];
 
-    if (iter === 0 || iter % 50 === 0) {
+    if (iter === 0 || iter % 5 === 0) {
       writeLog('Debt Sizing [iter ' + iter + ']: CEG_PrincipalDiff = ' + diff, 'info');
     }
 
@@ -782,7 +782,7 @@ function _debtSizingLoop(context, rDiff, rHC, rLive, iter, maxIter) {
 // CEG_SweepMiniPermCap_Diff = 0. Port of TermDebt.SweepCapAndDebtSizing().
 function _sweepCapAndDebtSizing(bClear) {
   if (bClear === undefined) bClear = true;
-  var MAX_ITER = 1000;
+  var MAX_ITER = 50;
 
   return Excel.run(function (context) {
     var wb            = context.workbook;
@@ -851,7 +851,7 @@ function _sweepCapLoop(context, rPrincipalDiff, rPrincipalHC, rPrincipalLive, rS
     var principalDiff = rPrincipalDiff.values[0][0];
     var sweepDiff     = rSweepDiff.values[0][0];
 
-    if (iter === 0 || iter % 50 === 0) {
+    if (iter === 0 || iter % 5 === 0) {
       writeLog('Sweep Cap & Debt Sizing [iter ' + iter + ']: PrincipalDiff = ' + principalDiff + ', SweepDiff = ' + sweepDiff, 'info');
     }
 
