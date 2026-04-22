@@ -1,162 +1,41 @@
 // taskpane.js — Excel Macro Add-in task pane
 //
-// Two UI sections:
-//   1. Rename Map panel  — reflects addin_rename_map written by readRenameList()
-//   2. Activity Log      — reflects log entries written by all ribbon functions
-//
-// Both sections read from localStorage (same GitHub Pages origin as commands.js)
-// and update via the 'storage' event + a 500 ms polling fallback.
+// All commands run directly from the task pane. The ribbon only opens the
+// task pane; there are no ExecuteFunction ribbon buttons, so no separate
+// function file (commands.html/js) is needed.
 
-var lastDisplayedId = 0;
-var nrPanelExpanded = false;
-
-// ── Initialise ────────────────────────────────────────────────────────────────
 Office.onReady(function (info) {
   if (info.host === Office.HostType.Excel) {
     document.getElementById('clearLogBtn').addEventListener('click', clearLog);
-    document.getElementById('nr-header').addEventListener('click', toggleNrPanel);
-
-    loadRenamePanelFromStorage();
-    loadExistingLogs();
-    listenForStorageChanges();
+    document.getElementById('goalSeekBtn').addEventListener('click', goalSeek);
+    showEmptyState();
   }
 });
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// RENAME MAP PANEL
-// ═══════════════════════════════════════════════════════════════════════════════
-
-function loadRenamePanelFromStorage() {
-  var map = getRenameMap();
-  var ts  = localStorage.getItem('addin_rename_map_ts') || '';
-  renderRenameMap(map, ts);
-}
-
-function getRenameMap() {
-  try { return JSON.parse(localStorage.getItem('addin_rename_map') || '[]'); } catch (e) { return []; }
-}
-
-function renderRenameMap(map, ts) {
-  var badge   = document.getElementById('nr-badge');
-  var tsEl    = document.getElementById('nr-ts');
-  var ul      = document.getElementById('nr-list');
-  var emptyEl = document.getElementById('nr-empty');
-
-  badge.textContent = map.length;
-  badge.className   = 'badge' + (map.length === 0 ? ' empty' : '');
-  tsEl.textContent  = ts ? 'loaded ' + ts : '';
-
-  ul.innerHTML = '';
-
-  if (map.length === 0) {
-    emptyEl.style.display = '';
-  } else {
-    emptyEl.style.display = 'none';
-    map.forEach(function (pair) {
-      var li = document.createElement('li');
-      li.className = 'nr-item';
-      li.innerHTML =
-        '<span class="nr-old">'    + escapeHtml(pair.oldName) + '</span>' +
-        '<span class="nr-arrow">'  + '→'                      + '</span>' +
-        '<span class="nr-new">'    + escapeHtml(pair.newName) + '</span>';
-      ul.appendChild(li);
-    });
-
-    // Auto-expand when fresh data arrives
-    if (!nrPanelExpanded) { setNrPanelOpen(true); }
-  }
-}
-
-function toggleNrPanel() { setNrPanelOpen(!nrPanelExpanded); }
-
-function setNrPanelOpen(open) {
-  nrPanelExpanded = open;
-  document.getElementById('nr-body').classList.toggle('nr-collapsed', !open);
-  document.getElementById('nr-chevron').classList.toggle('open', open);
-  document.getElementById('nr-header').setAttribute('aria-expanded', String(open));
-}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // ACTIVITY LOG
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function loadExistingLogs() {
-  var logs = getStoredLogs();
-  if (logs.length === 0) {
-    showEmptyState();
-  } else {
-    logs.forEach(function (entry) {
-      appendLogEntry(entry);
-      if (entry.id > lastDisplayedId) { lastDisplayedId = entry.id; }
-    });
-  }
-}
+function writeLog(message, type) {
+  removeEmptyState();
 
-function listenForStorageChanges() {
-  // Primary: storage event (fires when a different iframe writes to localStorage)
-  window.addEventListener('storage', function (e) {
-    if (e.key === 'addin_log_latest' && e.newValue) {
-      try {
-        var entry = JSON.parse(e.newValue);
-        if (entry.id > lastDisplayedId) {
-          removeEmptyState();
-          appendLogEntry(entry);
-          lastDisplayedId = entry.id;
-        }
-      } catch (err) { /* ignore */ }
-    }
-    if (e.key === 'addin_rename_map_updated') {
-      loadRenamePanelFromStorage();
-    }
-  });
-
-  // Fallback: poll every 500 ms (same-context environments skip the storage event)
-  var lastPanelTs = '';
-  setInterval(function () {
-    // New log entries
-    var logs    = getStoredLogs();
-    var newLogs = logs.filter(function (e) { return e.id > lastDisplayedId; });
-    newLogs.forEach(function (entry) {
-      removeEmptyState();
-      appendLogEntry(entry);
-      lastDisplayedId = entry.id;
-    });
-
-    // Rename map updates
-    var storedTs = localStorage.getItem('addin_rename_map_ts') || '';
-    if (storedTs && storedTs !== lastPanelTs) {
-      lastPanelTs = storedTs;
-      loadRenamePanelFromStorage();
-    }
-  }, 500);
-}
-
-// ── Log helpers ───────────────────────────────────────────────────────────────
-function getStoredLogs() {
-  try { return JSON.parse(localStorage.getItem('addin_logs') || '[]'); } catch (e) { return []; }
-}
-
-function appendLogEntry(entry) {
   var list = document.getElementById('log-list');
   var li   = document.createElement('li');
-  li.className = 'log-entry ' + (entry.type || 'info');
+  li.className = 'log-entry ' + (type || 'info');
 
-  var indicator = { success: '✓', error: '✕', info: '●' }[entry.type] || '●';
+  var indicator = { success: '✓', error: '✕', info: '●' }[type] || '●';
+  var timestamp = new Date().toLocaleTimeString();
 
   li.innerHTML =
-    '<span class="timestamp">' + escapeHtml(entry.timestamp) + '</span>' +
-    '<span class="indicator">' + indicator                   + '</span>' +
-    '<span class="message">'   + escapeHtml(entry.message)   + '</span>';
+    '<span class="timestamp">' + escapeHtml(timestamp) + '</span>' +
+    '<span class="indicator">' + indicator              + '</span>' +
+    '<span class="message">'   + escapeHtml(message)    + '</span>';
 
   list.appendChild(li);
   li.scrollIntoView({ behavior: 'smooth', block: 'end' });
 }
 
 function clearLog() {
-  localStorage.removeItem('addin_logs');
-  localStorage.removeItem('addin_log_latest');
-  localStorage.removeItem('addin_log_counter');
-  lastDisplayedId = 0;
   document.getElementById('log-list').innerHTML = '';
   showEmptyState();
 }
@@ -166,7 +45,7 @@ function showEmptyState() {
     var p = document.createElement('p');
     p.id          = 'empty-state';
     p.className   = 'empty-state';
-    p.textContent = 'No activity yet. Use the ribbon buttons to get started.';
+    p.textContent = 'No activity yet. Click a command button to get started.';
     document.getElementById('log-list').appendChild(p);
   }
 }
@@ -180,4 +59,85 @@ function escapeHtml(str) {
   var div = document.createElement('div');
   div.appendChild(document.createTextNode(String(str)));
   return div.innerHTML;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// COMMAND — Goal Seek
+// Requires three named ranges: CEG_Target, CEG_Input, CEG_Guess.
+// Iterates CEG_Guess → CEG_Input until |CEG_Target| ≤ TOLERANCE.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function goalSeek() {
+  var MAX_ITERATIONS = 1000;
+  var TOLERANCE      = 1e-10;
+
+  Excel.run(function (context) {
+    var names = context.workbook.names;
+
+    var targetItem = names.getItemOrNullObject('CEG_Target');
+    var inputItem  = names.getItemOrNullObject('CEG_Input');
+    var guessItem  = names.getItemOrNullObject('CEG_Guess');
+
+    targetItem.load('isNullObject');
+    inputItem.load('isNullObject');
+    guessItem.load('isNullObject');
+
+    return context.sync().then(function () {
+      var missing = [];
+      if (targetItem.isNullObject) missing.push('CEG_Target');
+      if (inputItem.isNullObject)  missing.push('CEG_Input');
+      if (guessItem.isNullObject)  missing.push('CEG_Guess');
+
+      if (missing.length > 0) {
+        writeLog('Goal Seek: Missing named range(s): ' + missing.join(', '), 'error');
+        return;
+      }
+
+      writeLog('Goal Seek: Found CEG_Target, CEG_Input, CEG_Guess. Starting…', 'info');
+
+      return goalSeekIterate(
+        context,
+        targetItem.getRange(),
+        inputItem.getRange(),
+        guessItem.getRange(),
+        0, MAX_ITERATIONS, TOLERANCE
+      );
+    });
+  })
+  .catch(function (error) {
+    writeLog('Goal Seek error: ' + error.message, 'error');
+  });
+}
+
+function goalSeekIterate(context, targetRange, inputRange, guessRange, iteration, maxIter, tol) {
+  if (iteration >= maxIter) {
+    writeLog('Goal Seek: Did not converge after ' + maxIter + ' iterations.', 'error');
+    return Promise.resolve();
+  }
+
+  targetRange.load('values');
+  guessRange.load('values');
+
+  return context.sync().then(function () {
+    var targetValue = targetRange.values[0][0];
+    var guessValue  = guessRange.values[0][0];
+
+    if (iteration === 0 || iteration % 50 === 0) {
+      writeLog('Goal Seek [iter ' + iteration + ']: CEG_Target = ' + targetValue, 'info');
+    }
+
+    if (Math.abs(targetValue) <= tol) {
+      writeLog(
+        'Goal Seek: Converged in ' + iteration + ' iteration(s). CEG_Target = ' + targetValue,
+        'success'
+      );
+      return;
+    }
+
+    inputRange.values = [[guessValue]];
+    return context.sync().then(function () {
+      return goalSeekIterate(context, targetRange, inputRange, guessRange,
+                             iteration + 1, maxIter, tol);
+    });
+  });
 }

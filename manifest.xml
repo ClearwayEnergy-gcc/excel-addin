@@ -11,7 +11,7 @@
   <ProviderName>ClearwayEnergy-gcc</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="Excel Macro Add-in" />
-  <Description DefaultValue="Excel Add-in with ribbon buttons and an activity log task pane." />
+  <Description DefaultValue="Excel Add-in task pane with command buttons and an activity log." />
   <IconUrl DefaultValue="https://clearwayenergy-gcc.github.io/excel-addin/assets/icon-80.png" />
   <HighResolutionIconUrl DefaultValue="https://clearwayenergy-gcc.github.io/excel-addin/assets/icon-80.png" />
   <SupportUrl DefaultValue="https://github.com/ClearwayEnergy-gcc/excel-addin" />
@@ -41,8 +41,6 @@
             <LearnMoreUrl resid="LearnMoreUrl" />
           </GetStarted>
 
-          <FunctionFile resid="Commands.Url" />
-
           <ExtensionPoint xsi:type="PrimaryCommandSurface">
             <OfficeTab id="TabHome">
               <Group id="MyMacroGroup">
@@ -53,7 +51,7 @@
                   <bt:Image size="80" resid="Icon.80x80" />
                 </Icon>
 
-                <!-- Open Activity Log Task Pane -->
+                <!-- Single ribbon button: open the task pane -->
                 <Control xsi:type="Button" id="OpenTaskPane">
                   <Label resid="OpenTaskPane.Label" />
                   <Supertip>
@@ -68,74 +66,6 @@
                   <Action xsi:type="ShowTaskpane">
                     <TaskpaneId>MyTaskPane</TaskpaneId>
                     <SourceLocation resid="TaskPane.Url" />
-                  </Action>
-                </Control>
-
-                <!-- Button 1: Read Named-Ranges -->
-                <Control xsi:type="Button" id="Button1">
-                  <Label resid="Button1.Label" />
-                  <Supertip>
-                    <Title resid="Button1.Label" />
-                    <Description resid="Button1.Tooltip" />
-                  </Supertip>
-                  <Icon>
-                    <bt:Image size="16" resid="Icon.16x16" />
-                    <bt:Image size="32" resid="Icon.32x32" />
-                    <bt:Image size="80" resid="Icon.80x80" />
-                  </Icon>
-                  <Action xsi:type="ExecuteFunction">
-                    <FunctionName>readNamedRanges</FunctionName>
-                  </Action>
-                </Control>
-
-                <!-- Button 2: Read Rename List -->
-                <Control xsi:type="Button" id="Button2">
-                  <Label resid="Button2.Label" />
-                  <Supertip>
-                    <Title resid="Button2.Label" />
-                    <Description resid="Button2.Tooltip" />
-                  </Supertip>
-                  <Icon>
-                    <bt:Image size="16" resid="Icon.16x16" />
-                    <bt:Image size="32" resid="Icon.32x32" />
-                    <bt:Image size="80" resid="Icon.80x80" />
-                  </Icon>
-                  <Action xsi:type="ExecuteFunction">
-                    <FunctionName>readRenameList</FunctionName>
-                  </Action>
-                </Control>
-
-                <!-- Button 3: Apply Named-Range Rename -->
-                <Control xsi:type="Button" id="Button3">
-                  <Label resid="Button3.Label" />
-                  <Supertip>
-                    <Title resid="Button3.Label" />
-                    <Description resid="Button3.Tooltip" />
-                  </Supertip>
-                  <Icon>
-                    <bt:Image size="16" resid="Icon.16x16" />
-                    <bt:Image size="32" resid="Icon.32x32" />
-                    <bt:Image size="80" resid="Icon.80x80" />
-                  </Icon>
-                  <Action xsi:type="ExecuteFunction">
-                    <FunctionName>applyNamedRangeRename</FunctionName>
-                  </Action>
-                </Control>
-
-                <!-- Button 4: Goal Seek -->
-                <Control xsi:type="Button" id="Button4">
-                  <Label resid="Button4.Label" />
-                  <Supertip>
-                    <Title resid="Button4.Label" />
-                    <Description resid="Button4.Tooltip" />
-                  </Supertip>
-                  <Icon>
-                    <bt:Image size="16" resid="Icon.16x16" />
-                    <bt:Image size="32" resid="Icon.32x32" />
-                    <bt:Image size="80" resid="Icon.80x80" />
-                  </Icon>
-                  <Action xsi:type="ExecuteFunction">
-                    <FunctionName>goalSeek</FunctionName>
                   </Action>
                 </Control>
 
@@ -154,25 +84,16 @@
       </bt:Images>
       <bt:Urls>
         <bt:Url id="LearnMoreUrl" DefaultValue="https://go.microsoft.com/fwlink/?LinkId=276812" />
-        <bt:Url id="Commands.Url" DefaultValue="https://clearwayenergy-gcc.github.io/excel-addin/commands.html" />
         <bt:Url id="TaskPane.Url" DefaultValue="https://clearwayenergy-gcc.github.io/excel-addin/taskpane.html" />
       </bt:Urls>
       <bt:ShortStrings>
         <bt:String id="GetStarted.Title" DefaultValue="Excel Macro Add-in loaded!" />
         <bt:String id="CommandsGroup.Label" DefaultValue="Excel Macros" />
-        <bt:String id="OpenTaskPane.Label" DefaultValue="Show Log" />
-        <bt:String id="Button1.Label" DefaultValue="Read Named-Ranges" />
-        <bt:String id="Button2.Label" DefaultValue="Read Rename List" />
-        <bt:String id="Button3.Label" DefaultValue="Apply Rename" />
-        <bt:String id="Button4.Label" DefaultValue="Goal Seek" />
+        <bt:String id="OpenTaskPane.Label" DefaultValue="Open Task Pane" />
       </bt:ShortStrings>
       <bt:LongStrings>
-        <bt:String id="GetStarted.Description" DefaultValue="Use the ribbon buttons to run macros. Open the activity log to see results." />
-        <bt:String id="OpenTaskPane.Tooltip" DefaultValue="Opens the activity log task pane." />
-        <bt:String id="Button1.Tooltip" DefaultValue="Creates a Manage Named-Ranges sheet in this workbook listing all named ranges in Column A. Fill Column B with new names, then click Read Rename List." />
-        <bt:String id="Button2.Tooltip" DefaultValue="Reads the old/new name pairs from the Manage Named-Ranges sheet (skipping blank rows in Column B) and stores them in memory." />
-        <bt:String id="Button3.Tooltip" DefaultValue="Applies the stored rename map to the currently active workbook, creating new named ranges and deleting the old ones." />
-        <bt:String id="Button4.Tooltip" DefaultValue="Iterates CEG_Guess into CEG_Input until CEG_Target reaches zero." />
+        <bt:String id="GetStarted.Description" DefaultValue="Open the task pane to run macros and see the activity log." />
+        <bt:String id="OpenTaskPane.Tooltip" DefaultValue="Opens the Excel Macro Add-in task pane." />
       </bt:LongStrings>
     </Resources>
   </VersionOverrides>

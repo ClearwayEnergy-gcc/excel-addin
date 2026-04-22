@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Activity Log</title>
+  <title>Excel Macro Add-in</title>
   <link rel="stylesheet" href="taskpane.css" />
   <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js" type="text/javascript"></script>
 </head>
@@ -15,19 +15,14 @@
       <h1>Excel Macro Add-in</h1>
     </header>
 
-    <!-- ── Rename Map Panel ─────────────────────────────────────────────────── -->
-    <section id="nr-panel">
-      <div id="nr-header" role="button" aria-expanded="false">
-        <span id="nr-title">Rename Map</span>
-        <span id="nr-badge" class="badge empty">0</span>
-        <span id="nr-ts" class="nr-ts"></span>
-        <span id="nr-chevron" class="chevron">▶</span>
-      </div>
-      <div id="nr-body" class="nr-collapsed">
-        <ul id="nr-list"></ul>
-        <p id="nr-empty" class="panel-empty">
-          Run "Read Named-Ranges" → fill Column B → "Read Rename List".
-        </p>
+    <!-- ── Commands ─────────────────────────────────────────────────────────── -->
+    <section id="cmd-section">
+      <div class="section-title">Commands</div>
+      <div id="cmd-buttons">
+        <button id="goalSeekBtn" class="cmd-btn"
+                title="Iterates CEG_Guess → CEG_Input until CEG_Target ≈ 0.">
+          Goal Seek
+        </button>
       </div>
     </section>
 
