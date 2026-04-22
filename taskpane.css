@@ -23,18 +23,6 @@ body {
   gap: 8px;
 }
 
-/* ── Page header ──────────────────────────────────────────────────────────── */
-header {
-  flex-shrink: 0;
-}
-
-h1 {
-  font-size: 14px;
-  font-weight: 600;
-  color: #1a3a5c;
-  letter-spacing: 0.3px;
-}
-
 /* ── Shared section styles ────────────────────────────────────────────────── */
 .section-title {
   font-size: 12.5px;
@@ -65,10 +53,6 @@ button:active { background: #b0b0b0; }
   padding: 8px 10px;
 }
 
-#cmd-section .section-title {
-  display: block;
-  margin-bottom: 6px;
-}
 
 #cmd-buttons {
   display: flex;
