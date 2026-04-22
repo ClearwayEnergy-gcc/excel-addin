@@ -458,7 +458,7 @@ function _valuesEqual(a, b) {
 //   CEG_Scenario2/3/4Active, CEG_FinancingScenario  — accessed via ScenarioManager in VBA
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export function termDebtSolve() {
+export function solveTermDebt() {
   var flags = null; // shared across the promise chain
 
   // ── Step 1: validate ranges, check TDActive, read all scenario flags ───────
