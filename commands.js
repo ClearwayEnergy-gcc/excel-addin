@@ -866,7 +866,7 @@ function _sweepCapAndDebtSizing(bClear) {
 // until CEG_CWENPP_Diff = 0.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export function solveCWEN() {
+export function solveCWENUpfrontInvestment() {
   var MAX_ITER = 50;
   var t0 = Date.now();
   var ok = false;
@@ -929,7 +929,7 @@ export function solveCWEN() {
       var rHC       = wb.names.getItem('CEG_CWENPP_HC').getRange();
       var rLive     = wb.names.getItem('CEG_CWENPP_Live').getRange();
 
-      return _solveCWENLoop(context,
+      return _solveCWENUpfrontInvestmentLoop(context,
         rDiff, rNPVPaste, rNPVCopy, rCAFDPaste, rCAFDCopy, rHC, rLive, 0, MAX_ITER);
     });
   })
@@ -944,7 +944,7 @@ export function solveCWEN() {
 
 // Loop helper: each iteration copies NPV, CAFD, and CWENPP Live → HC/Paste
 // until CEG_CWENPP_Diff = 0.
-function _solveCWENLoop(context, rDiff, rNPVPaste, rNPVCopy, rCAFDPaste, rCAFDCopy, rHC, rLive, iter, maxIter) {
+function _solveCWENUpfrontInvestmentLoop(context, rDiff, rNPVPaste, rNPVCopy, rCAFDPaste, rCAFDCopy, rHC, rLive, iter, maxIter) {
   if (iter >= maxIter) {
     writeLog('Solve CWEN: Did not converge after ' + maxIter + ' iterations.', 'error');
     return Promise.resolve();
@@ -971,7 +971,7 @@ function _solveCWENLoop(context, rDiff, rNPVPaste, rNPVCopy, rCAFDPaste, rCAFDCo
       rCAFDPaste.values = rCAFDCopy.values;
       rHC.values        = rLive.values;
       return context.sync().then(function () {
-        return _solveCWENLoop(context,
+        return _solveCWENUpfrontInvestmentLoop(context,
           rDiff, rNPVPaste, rNPVCopy, rCAFDPaste, rCAFDCopy, rHC, rLive,
           iter + 1, maxIter);
       });
@@ -987,7 +987,7 @@ function _solveCWENLoop(context, rDiff, rNPVPaste, rNPVCopy, rCAFDPaste, rCAFDCo
 // CEG_CE2PP_HC ← CEG_CE2PP_Live until CEG_CE2PP_Diff = 0.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export function solveCE2() {
+export function solveCE2UpfrontInvestment() {
   var MAX_ITER = 50;
   var t0 = Date.now();
   var ok = false;
@@ -1038,7 +1038,7 @@ export function solveCE2() {
       var rHC   = wb.names.getItem('CEG_CE2PP_HC').getRange();
       var rLive = wb.names.getItem('CEG_CE2PP_Live').getRange();
 
-      return _solveCE2Loop(context, rDiff, rHC, rLive, 0, MAX_ITER);
+      return _solveCE2UpfrontInvestmentLoop(context, rDiff, rHC, rLive, 0, MAX_ITER);
     });
   })
 
@@ -1052,7 +1052,7 @@ export function solveCE2() {
 
 // Loop helper: copies CEG_CE2PP_Live → CEG_CE2PP_HC each iteration
 // until CEG_CE2PP_Diff = 0.
-function _solveCE2Loop(context, rDiff, rHC, rLive, iter, maxIter) {
+function _solveCE2UpfrontInvestmentLoop(context, rDiff, rHC, rLive, iter, maxIter) {
   if (iter >= maxIter) {
     writeLog('Solve CE2: Did not converge after ' + maxIter + ' iterations.', 'error');
     return Promise.resolve();
@@ -1075,7 +1075,7 @@ function _solveCE2Loop(context, rDiff, rHC, rLive, iter, maxIter) {
     return context.sync().then(function () {
       rHC.values = rLive.values;
       return context.sync().then(function () {
-        return _solveCE2Loop(context, rDiff, rHC, rLive, iter + 1, maxIter);
+        return _solveCE2UpfrontInvestmentLoop(context, rDiff, rHC, rLive, iter + 1, maxIter);
       });
     });
   });
