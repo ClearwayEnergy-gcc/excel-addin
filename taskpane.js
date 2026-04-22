@@ -7,7 +7,7 @@
 Office.onReady(function (info) {
   if (info.host === Office.HostType.Excel) {
     document.getElementById('clearLogBtn').addEventListener('click', clearLog);
-    document.getElementById('goalSeekBtn').addEventListener('click', goalSeek);
+    document.getElementById('checkModelBtn').addEventListener('click', checkModel);
     showEmptyState();
   }
 });
@@ -62,82 +62,24 @@ function escapeHtml(str) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// COMMAND — Goal Seek
-// Requires three named ranges: CEG_Target, CEG_Input, CEG_Guess.
-// Iterates CEG_Guess → CEG_Input until |CEG_Target| ≤ TOLERANCE.
+// COMMAND — Check for Clearway Project Financial Model
+// Looks for the named range "CEG_ModelTemplateVersion" in the workbook.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function goalSeek() {
-  var MAX_ITERATIONS = 1000;
-  var TOLERANCE      = 1e-10;
-
+function checkModel() {
   Excel.run(function (context) {
-    var names = context.workbook.names;
-
-    var targetItem = names.getItemOrNullObject('CEG_Target');
-    var inputItem  = names.getItemOrNullObject('CEG_Input');
-    var guessItem  = names.getItemOrNullObject('CEG_Guess');
-
-    targetItem.load('isNullObject');
-    inputItem.load('isNullObject');
-    guessItem.load('isNullObject');
+    var item = context.workbook.names.getItemOrNullObject('CEG_ModelTemplateVersion');
+    item.load('isNullObject,value');
 
     return context.sync().then(function () {
-      var missing = [];
-      if (targetItem.isNullObject) missing.push('CEG_Target');
-      if (inputItem.isNullObject)  missing.push('CEG_Input');
-      if (guessItem.isNullObject)  missing.push('CEG_Guess');
-
-      if (missing.length > 0) {
-        writeLog('Goal Seek: Missing named range(s): ' + missing.join(', '), 'error');
-        return;
+      if (item.isNullObject) {
+        writeLog('This workbook does not appear to be a Clearway Project Financial Model (CEG_ModelTemplateVersion not found).', 'error');
+      } else {
+        writeLog('Clearway Project Financial Model detected. CEG_ModelTemplateVersion = ' + item.value, 'success');
       }
-
-      writeLog('Goal Seek: Found CEG_Target, CEG_Input, CEG_Guess. Starting…', 'info');
-
-      return goalSeekIterate(
-        context,
-        targetItem.getRange(),
-        inputItem.getRange(),
-        guessItem.getRange(),
-        0, MAX_ITERATIONS, TOLERANCE
-      );
     });
   })
   .catch(function (error) {
-    writeLog('Goal Seek error: ' + error.message, 'error');
-  });
-}
-
-function goalSeekIterate(context, targetRange, inputRange, guessRange, iteration, maxIter, tol) {
-  if (iteration >= maxIter) {
-    writeLog('Goal Seek: Did not converge after ' + maxIter + ' iterations.', 'error');
-    return Promise.resolve();
-  }
-
-  targetRange.load('values');
-  guessRange.load('values');
-
-  return context.sync().then(function () {
-    var targetValue = targetRange.values[0][0];
-    var guessValue  = guessRange.values[0][0];
-
-    if (iteration === 0 || iteration % 50 === 0) {
-      writeLog('Goal Seek [iter ' + iteration + ']: CEG_Target = ' + targetValue, 'info');
-    }
-
-    if (Math.abs(targetValue) <= tol) {
-      writeLog(
-        'Goal Seek: Converged in ' + iteration + ' iteration(s). CEG_Target = ' + targetValue,
-        'success'
-      );
-      return;
-    }
-
-    inputRange.values = [[guessValue]];
-    return context.sync().then(function () {
-      return goalSeekIterate(context, targetRange, inputRange, guessRange,
-                             iteration + 1, maxIter, tol);
-    });
+    writeLog('Check Model error: ' + error.message, 'error');
   });
 }
