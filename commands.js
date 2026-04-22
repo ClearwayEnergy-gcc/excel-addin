@@ -41,10 +41,8 @@ export function checkModel() {
 // until CEG_TEUpfront_Diff = 0.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export function solveTEIUpfrontInvestment() {
+function _solveTEIUpfrontInvestmentImpl() {
   var MAX_ITER = 50;
-  var t0 = Date.now();
-
   return Excel.run(function (context) {
     var wb = context.workbook;
     wb.application.calculationMode = Excel.CalculationMode.automatic;
@@ -134,7 +132,12 @@ export function solveTEIUpfrontInvestment() {
         });
       });
     });
-  })
+  });
+}
+
+export function solveTEIUpfrontInvestment() {
+  var t0 = Date.now();
+  return _solveTEIUpfrontInvestmentImpl()
   .catch(function (error) {
     writeLog('Solve TEI Upfront Investment error: ' + error.message, 'error');
   })
@@ -479,9 +482,8 @@ function _valuesEqual(a, b) {
 //   CEG_Scenario2/3/4Active, CEG_FinancingScenario  — accessed via ScenarioManager in VBA
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export function solveTermDebt() {
+function _solveTermDebtImpl() {
   var flags = null; // shared across the promise chain
-  var t0 = Date.now();
 
   // ── Step 1: validate ranges, check TDActive, read all scenario flags ───────
   return Excel.run(function (context) {
@@ -680,6 +682,11 @@ export function solveTermDebt() {
     return _iterateTermDebtImpl();
   })
 
+}
+
+export function solveTermDebt() {
+  var t0 = Date.now();
+  return _solveTermDebtImpl()
   .catch(function (error) {
     writeLog('Term Debt Solve error: ' + error.message, 'error');
   })
@@ -883,9 +890,8 @@ function _sweepCapAndDebtSizing(bClear) {
 // until CEG_CWENPP_Diff = 0.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export function solveCWENUpfrontInvestment() {
+function _solveCWENUpfrontInvestmentImpl() {
   var MAX_ITER = 50;
-  var t0 = Date.now();
   var ok = false;
 
   // Step 1: validate ranges, set calculation and scenario
@@ -951,6 +957,11 @@ export function solveCWENUpfrontInvestment() {
     });
   })
 
+}
+
+export function solveCWENUpfrontInvestment() {
+  var t0 = Date.now();
+  return _solveCWENUpfrontInvestmentImpl()
   .catch(function (error) {
     writeLog('Solve CWEN error: ' + error.message, 'error');
   })
@@ -1004,9 +1015,8 @@ function _solveCWENUpfrontInvestmentLoop(context, rDiff, rNPVPaste, rNPVCopy, rC
 // CEG_CE2PP_HC ← CEG_CE2PP_Live until CEG_CE2PP_Diff = 0.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export function solveCE2UpfrontInvestment() {
+function _solveCE2UpfrontInvestmentImpl() {
   var MAX_ITER = 50;
-  var t0 = Date.now();
   var ok = false;
 
   // Step 1: validate ranges, set calculation and scenario
@@ -1059,6 +1069,11 @@ export function solveCE2UpfrontInvestment() {
     });
   })
 
+}
+
+export function solveCE2UpfrontInvestment() {
+  var t0 = Date.now();
+  return _solveCE2UpfrontInvestmentImpl()
   .catch(function (error) {
     writeLog('Solve CE2 error: ' + error.message, 'error');
   })
@@ -1152,10 +1167,8 @@ function _sweepCapLoop(context, rPrincipalDiff, rPrincipalHC, rPrincipalLive, rS
 // CEG_General.CircularityDeltaPrecision. Restores automatic calculation on exit.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export function solveCapexCFCircularity() {
+function _solveCapexCFCircularityImpl() {
   var MAX_ITER = 50;
-  var t0 = Date.now();
-
   return Excel.run(function (context) {
     var wb = context.workbook;
 
@@ -1215,6 +1228,11 @@ export function solveCapexCFCircularity() {
       });
     });
   })
+}
+
+export function solveCapexCFCircularity() {
+  var t0 = Date.now();
+  return _solveCapexCFCircularityImpl()
   .catch(function (error) {
     writeLog('Solve CapEx CF Circularity error: ' + error.message, 'error');
   })
@@ -1271,5 +1289,374 @@ function _solveCapexCFCircularityLoop(context, rCostDelta, rTakeOutDiff, precisi
         );
       });
     });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// COMMAND — Paste Metrics
+// Port of ScenarioManager.PasteMetrics().
+//
+// Pastes CEG_KeyMetrics into the column at the offset specified by
+// CEG_MetricsPasteColumn relative to the CEG_KeyMetrics range itself.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function _pasteMetricsImpl() {
+  return Excel.run(function (context) {
+    var wb = context.workbook;
+    wb.application.calculationMode = Excel.CalculationMode.automatic;
+
+    var nKeyMetrics  = wb.names.getItemOrNullObject('CEG_KeyMetrics');
+    var nPasteColumn = wb.names.getItemOrNullObject('CEG_MetricsPasteColumn');
+
+    nKeyMetrics.load('isNullObject');
+    nPasteColumn.load('isNullObject');
+
+    return context.sync().then(function () {
+      var missing = [];
+      if (nKeyMetrics.isNullObject)  missing.push('CEG_KeyMetrics');
+      if (nPasteColumn.isNullObject) missing.push('CEG_MetricsPasteColumn');
+      if (missing.length > 0) {
+        writeLog('Paste Metrics: Missing named range(s): ' + missing.join(', '), 'error');
+        return;
+      }
+
+      var rPasteColumn = nPasteColumn.getRange();
+      var rKeyMetrics  = nKeyMetrics.getRange();
+      rPasteColumn.load('values');
+      rKeyMetrics.load('values');
+
+      return context.sync().then(function () {
+        var colOffset = rPasteColumn.values[0][0];
+        var rDest     = rKeyMetrics.getOffsetRange(0, colOffset);
+        rDest.values  = rKeyMetrics.values;
+
+        return context.sync().then(function () {
+          writeLog('Paste Metrics: Key metrics pasted at column offset ' + colOffset + '.', 'success');
+        });
+      });
+    });
+  });
+}
+
+export function pasteMetrics() {
+  var t0 = Date.now();
+  return _pasteMetricsImpl()
+  .catch(function (error) {
+    writeLog('Paste Metrics error: ' + error.message, 'error');
+  })
+  .then(function () {
+    writeLog('Paste Metrics: completed in ' + ((Date.now() - t0) / 1000).toFixed(2) + 's.', 'info');
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// FMV Income Approach loop helper
+// Used by _solveCapitalStackImpl when CEG_Scenario1Active = true and
+// CEG_FMVOverride = "".
+// Iterates CEG_IncomeApproachHC ← CEG_IncomeApproachLive until
+// CEG_IncomeApproachDiff = 0.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function _fmvIncomeApproachLoop(context, rDiff, rHC, rLive, iter, maxIter) {
+  if (iter >= maxIter) {
+    writeLog('FMV Income Approach: Did not converge after ' + maxIter + ' iterations.', 'error');
+    return Promise.resolve();
+  }
+
+  rDiff.load('values');
+  return context.sync().then(function () {
+    var diff = rDiff.values[0][0];
+
+    if (iter === 0 || iter % 5 === 0) {
+      writeLog('FMV Income Approach [iter ' + iter + ']: CEG_IncomeApproachDiff = ' + diff, 'info');
+    }
+
+    if (diff === 0) {
+      writeLog('FMV Income Approach: Converged in ' + iter + ' iteration(s).', 'success');
+      return;
+    }
+
+    rLive.load('values');
+    return context.sync().then(function () {
+      rHC.values = rLive.values;
+      return context.sync().then(function () {
+        return _fmvIncomeApproachLoop(context, rDiff, rHC, rLive, iter + 1, maxIter);
+      });
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// COMMAND — Solve Capital Stack
+// Port of ScenarioManager.SolveCapitalStack().
+//
+// Orchestrates the full capital stack solve in order:
+//   1. CapEx CF circularity with approximate take-out amounts
+//   2. Project-level term debt (if CEG_ProjectDebt = "Project")
+//   3. Tax equity (if CEG_Scenario1Active):
+//        — If CEG_FMVOverride = "": iterate FMV income approach
+//        — Solve TEI upfront investment
+//   4. Backleverage term debt (if CEG_ProjectDebt = "BL")
+//   5. Third-party CE investment (if CEG_Scenario6Active)
+//   6. CWEN investment (if CEG_Scenario5Active)
+//   7. CapEx CF circularity with resolved take-out amounts
+//   8. Paste metrics
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function _solveCapitalStackImpl() {
+  var MAX_ITER = 50;
+  var projectDebt = null;
+
+  writeLog('Solve Capital Stack: Starting…', 'info');
+
+  // ── Step 1: Set ignore flag, solve CapEx CF circularity ───────────────────
+  writeLog('Solve Capital Stack: Solving CF with approximate take-out amounts…', 'info');
+  return Excel.run(function (context) {
+    var nIgnore = context.workbook.names.getItemOrNullObject('CEG_CF_IgnoreTakeoutAmounts');
+    nIgnore.load('isNullObject');
+    return context.sync().then(function () {
+      if (nIgnore.isNullObject) {
+        writeLog('Solve Capital Stack: Missing CEG_CF_IgnoreTakeoutAmounts.', 'error');
+        return false;
+      }
+      nIgnore.getRange().values = [[true]];
+      return context.sync().then(function () { return true; });
+    });
+  })
+  .then(function (ok) {
+    if (!ok) return;
+    return _solveCapexCFCircularityImpl();
+  })
+
+  // ── Step 2: Read CEG_ProjectDebt ──────────────────────────────────────────
+  .then(function () {
+    return Excel.run(function (context) {
+      var nProjectDebt = context.workbook.names.getItemOrNullObject('CEG_ProjectDebt');
+      nProjectDebt.load('isNullObject');
+      return context.sync().then(function () {
+        if (nProjectDebt.isNullObject) {
+          writeLog('Solve Capital Stack: Missing CEG_ProjectDebt.', 'error');
+          return null;
+        }
+        var r = nProjectDebt.getRange();
+        r.load('values');
+        return context.sync().then(function () {
+          projectDebt = r.values[0][0];
+          return projectDebt;
+        });
+      });
+    });
+  })
+
+  // ── Step 3: Project-level term debt ───────────────────────────────────────
+  .then(function (pd) {
+    if (pd === 'Project') {
+      writeLog('Solve Capital Stack: Solving project-level term debt…', 'info');
+      return _solveTermDebtImpl();
+    }
+  })
+
+  // ── Step 4: Tax equity — check scenario flag ───────────────────────────────
+  .then(function () {
+    return Excel.run(function (context) {
+      var nScenario1Active = context.workbook.names.getItemOrNullObject('CEG_Scenario1Active');
+      nScenario1Active.load('isNullObject');
+      return context.sync().then(function () {
+        if (nScenario1Active.isNullObject) return null;
+        var r = nScenario1Active.getRange();
+        r.load('values');
+        return context.sync().then(function () { return r.values[0][0]; });
+      });
+    });
+  })
+  .then(function (scenario1Active) {
+    if (!scenario1Active) return;
+
+    // Set financing scenario 1, then read FMV override flag
+    return Excel.run(function (context) {
+      context.workbook.names.getItem('CEG_FinancingScenario').getRange().values = [[1]];
+
+      var nFMVOverride = context.workbook.names.getItemOrNullObject('CEG_FMVOverride');
+      nFMVOverride.load('isNullObject');
+
+      return context.sync().then(function () {
+        if (nFMVOverride.isNullObject) return undefined;
+        var r = nFMVOverride.getRange();
+        r.load('values');
+        return context.sync().then(function () { return r.values[0][0]; });
+      });
+    })
+    .then(function (fmvOverride) {
+      // Run FMV income approach solve only when override field is blank
+      if (fmvOverride !== '') return;
+
+      writeLog('Solve Capital Stack: Solving FMV income approach…', 'info');
+      return Excel.run(function (context) {
+        var wb    = context.workbook;
+        var nDiff = wb.names.getItemOrNullObject('CEG_IncomeApproachDiff');
+        var nHC   = wb.names.getItemOrNullObject('CEG_IncomeApproachHC');
+        var nLive = wb.names.getItemOrNullObject('CEG_IncomeApproachLive');
+        [nDiff, nHC, nLive].forEach(function (n) { n.load('isNullObject'); });
+
+        return context.sync().then(function () {
+          var missing = [];
+          if (nDiff.isNullObject) missing.push('CEG_IncomeApproachDiff');
+          if (nHC.isNullObject)   missing.push('CEG_IncomeApproachHC');
+          if (nLive.isNullObject) missing.push('CEG_IncomeApproachLive');
+          if (missing.length > 0) {
+            writeLog('Solve Capital Stack: Missing FMV range(s): ' + missing.join(', '), 'error');
+            return;
+          }
+          return _fmvIncomeApproachLoop(context,
+            nDiff.getRange(), nHC.getRange(), nLive.getRange(), 0, MAX_ITER);
+        });
+      });
+    })
+    .then(function () {
+      writeLog('Solve Capital Stack: Solving tax equity upfront investment…', 'info');
+      return _solveTEIUpfrontInvestmentImpl();
+    });
+  })
+
+  // ── Step 5: Backleverage term debt ────────────────────────────────────────
+  .then(function () {
+    if (projectDebt === 'BL') {
+      writeLog('Solve Capital Stack: Solving backleverage term debt…', 'info');
+      return _solveTermDebtImpl();
+    }
+  })
+
+  // ── Step 6: Third-party CE investment ─────────────────────────────────────
+  .then(function () {
+    return Excel.run(function (context) {
+      var nScenario6Active = context.workbook.names.getItemOrNullObject('CEG_Scenario6Active');
+      nScenario6Active.load('isNullObject');
+      return context.sync().then(function () {
+        if (nScenario6Active.isNullObject) return false;
+        var r = nScenario6Active.getRange();
+        r.load('values');
+        return context.sync().then(function () { return r.values[0][0]; });
+      });
+    });
+  })
+  .then(function (scenario6Active) {
+    if (scenario6Active) {
+      writeLog('Solve Capital Stack: Solving third-party CE investment…', 'info');
+      return _solveCE2UpfrontInvestmentImpl();
+    }
+  })
+
+  // ── Step 7: CWEN investment ───────────────────────────────────────────────
+  .then(function () {
+    return Excel.run(function (context) {
+      var nScenario5Active = context.workbook.names.getItemOrNullObject('CEG_Scenario5Active');
+      nScenario5Active.load('isNullObject');
+      return context.sync().then(function () {
+        if (nScenario5Active.isNullObject) return false;
+        var r = nScenario5Active.getRange();
+        r.load('values');
+        return context.sync().then(function () { return r.values[0][0]; });
+      });
+    });
+  })
+  .then(function (scenario5Active) {
+    if (scenario5Active) {
+      writeLog('Solve Capital Stack: Solving CWEN investment…', 'info');
+      return _solveCWENUpfrontInvestmentImpl();
+    }
+  })
+
+  // ── Step 8: Solve CF with resolved take-out amounts ───────────────────────
+  .then(function () {
+    writeLog('Solve Capital Stack: Solving CF with resolved take-out amounts…', 'info');
+    return Excel.run(function (context) {
+      context.workbook.names.getItem('CEG_CF_IgnoreTakeoutAmounts').getRange().values = [[false]];
+      return context.sync();
+    });
+  })
+  .then(function () {
+    return _solveCapexCFCircularityImpl();
+  })
+
+  // ── Step 9: Paste metrics ─────────────────────────────────────────────────
+  .then(function () {
+    writeLog('Solve Capital Stack: Pasting metrics…', 'info');
+    return _pasteMetricsImpl();
+  });
+}
+
+export function solveCapitalStack() {
+  var t0 = Date.now();
+  return _solveCapitalStackImpl()
+  .catch(function (error) {
+    writeLog('Solve Capital Stack error: ' + error.message, 'error');
+  })
+  .then(function () {
+    writeLog('Solve Capital Stack: completed in ' + ((Date.now() - t0) / 1000).toFixed(2) + 's.', 'info');
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// COMMAND — Run Scenarios
+// Port of ScenarioManager.RunScenarios().
+//
+// Iterates CEG_InputsScenario from 1 to CEG_TotalScenarios, calling
+// _solveCapitalStackImpl for each scenario in sequence.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function _runScenariosLoop(totalScenarios, currentScenario) {
+  if (currentScenario > totalScenarios) {
+    writeLog('Run Scenarios: All ' + totalScenarios + ' scenario(s) complete.', 'success');
+    return Promise.resolve();
+  }
+
+  writeLog('Run Scenarios: Starting scenario ' + currentScenario + ' of ' + totalScenarios + '…', 'info');
+
+  return Excel.run(function (context) {
+    context.workbook.names.getItem('CEG_InputsScenario').getRange().values = [[currentScenario]];
+    return context.sync();
+  })
+  .then(function () {
+    return _solveCapitalStackImpl();
+  })
+  .then(function () {
+    return _runScenariosLoop(totalScenarios, currentScenario + 1);
+  });
+}
+
+export function runScenarios() {
+  var t0 = Date.now();
+
+  return Excel.run(function (context) {
+    var nTotalScenarios = context.workbook.names.getItemOrNullObject('CEG_TotalScenarios');
+    var nInputsScenario = context.workbook.names.getItemOrNullObject('CEG_InputsScenario');
+    [nTotalScenarios, nInputsScenario].forEach(function (n) { n.load('isNullObject'); });
+
+    return context.sync().then(function () {
+      var missing = [];
+      if (nTotalScenarios.isNullObject) missing.push('CEG_TotalScenarios');
+      if (nInputsScenario.isNullObject) missing.push('CEG_InputsScenario');
+      if (missing.length > 0) {
+        writeLog('Run Scenarios: Missing named range(s): ' + missing.join(', '), 'error');
+        return null;
+      }
+
+      var r = nTotalScenarios.getRange();
+      r.load('values');
+      return context.sync().then(function () {
+        return r.values[0][0];
+      });
+    });
+  })
+  .then(function (totalScenarios) {
+    if (totalScenarios === null) return;
+    writeLog('Run Scenarios: Running ' + totalScenarios + ' scenario(s)…', 'info');
+    return _runScenariosLoop(totalScenarios, 1);
+  })
+  .catch(function (error) {
+    writeLog('Run Scenarios error: ' + error.message, 'error');
+  })
+  .then(function () {
+    writeLog('Run Scenarios: completed in ' + ((Date.now() - t0) / 1000).toFixed(2) + 's.', 'info');
   });
 }

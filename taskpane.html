@@ -47,6 +47,18 @@
                 title="Switches to manual calculation and iterates TakeOut, TCInsurance, and ConstructionCosts until both deltas are within CEG_General.CircularityDeltaPrecision.">
           Solve CapEx CF Circularity
         </button>
+        <button id="solveCapitalStackBtn" class="cmd-btn"
+                title="Orchestrates the full capital stack solve: CapEx circularity, term debt, tax equity (with optional FMV solve), cash equity, and metrics paste.">
+          Solve Capital Stack
+        </button>
+        <button id="runScenariosBtn" class="cmd-btn"
+                title="Iterates CEG_InputsScenario from 1 to CEG_TotalScenarios, running Solve Capital Stack for each.">
+          Run Scenarios
+        </button>
+        <button id="pasteMetricsBtn" class="cmd-btn"
+                title="Pastes CEG_KeyMetrics into the column offset specified by CEG_MetricsPasteColumn.">
+          Paste Metrics
+        </button>
       </div>
     </section>
 
