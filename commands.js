@@ -91,11 +91,11 @@ export function solveTEIUpfrontInvestment() {
       if (nTELive.isNullObject)             missing.push('CEG_TEUpfront_Live');
 
       if (missing.length > 0) {
-        writeLog('Solve TE Upfront: Missing named range(s): ' + missing.join(', '), 'error');
+        writeLog('Solve TEI Upfront Investment: Missing named range(s): ' + missing.join(', '), 'error');
         return;
       }
 
-      writeLog('Solve TE Upfront: Starting…', 'info');
+      writeLog('Solve TEI Upfront Investment: Starting…', 'info');
 
       // Step 1: CEG_FinancingScenario = 1
       nFinancingScenario.getRange().values = [[1]];
@@ -123,7 +123,7 @@ export function solveTEIUpfrontInvestment() {
 
           // Step 5: Iterate until CEG_TEUpfront_Diff = 0
           return context.sync().then(function () {
-            return _solveTEUpfrontLoop(
+            return _solveTEIUpfrontInvestmentLoop(
               context,
               nTEDiff.getRange(),
               nTEHC.getRange(),
@@ -136,7 +136,7 @@ export function solveTEIUpfrontInvestment() {
     });
   })
   .catch(function (error) {
-    writeLog('Solve TE Upfront error: ' + error.message, 'error');
+    writeLog('Solve TEI Upfront Investment error: ' + error.message, 'error');
   })
   .then(function () {
     writeLog('Solve TEI Upfront Investment: completed in ' + ((Date.now() - t0) / 1000).toFixed(2) + 's.', 'info');
@@ -145,9 +145,9 @@ export function solveTEIUpfrontInvestment() {
 
 // Loop helper: copies CEG_TEUpfront_Live → CEG_TEUpfront_HC each iteration
 // until CEG_TEUpfront_Diff = 0 (exact, matching VBA behaviour).
-function _solveTEUpfrontLoop(context, rDiff, rHC, rLive, iter, maxIter) {
+function _solveTEIUpfrontInvestmentLoop(context, rDiff, rHC, rLive, iter, maxIter) {
   if (iter >= maxIter) {
-    writeLog('Solve TE Upfront: Did not converge after ' + maxIter + ' iterations.', 'error');
+    writeLog('Solve TEI Upfront Investment: Did not converge after ' + maxIter + ' iterations.', 'error');
     return Promise.resolve();
   }
 
@@ -157,11 +157,11 @@ function _solveTEUpfrontLoop(context, rDiff, rHC, rLive, iter, maxIter) {
     var diff = rDiff.values[0][0];
 
     if (iter === 0 || iter % 5 === 0) {
-      writeLog('Solve TE Upfront [iter ' + iter + ']: CEG_TEUpfront_Diff = ' + diff, 'info');
+      writeLog('Solve TEI Upfront Investment [iter ' + iter + ']: CEG_TEUpfront_Diff = ' + diff, 'info');
     }
 
     if (diff === 0) {
-      writeLog('Solve TE Upfront: Converged in ' + iter + ' iteration(s).', 'success');
+      writeLog('Solve TEI Upfront Investment: Converged in ' + iter + ' iteration(s).', 'success');
       return;
     }
 
@@ -169,7 +169,7 @@ function _solveTEUpfrontLoop(context, rDiff, rHC, rLive, iter, maxIter) {
     return context.sync().then(function () {
       rHC.values = rLive.values;
       return context.sync().then(function () {
-        return _solveTEUpfrontLoop(context, rDiff, rHC, rLive, iter + 1, maxIter);
+        return _solveTEIUpfrontInvestmentLoop(context, rDiff, rHC, rLive, iter + 1, maxIter);
       });
     });
   });
