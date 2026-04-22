@@ -11,7 +11,7 @@ import { writeLog } from './log.js';
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export function checkModel() {
-  Excel.run(function (context) {
+  return Excel.run(function (context) {
     var item = context.workbook.names.getItemOrNullObject('CEG_ModelTemplateVersion');
     item.load('isNullObject,value');
 
@@ -40,7 +40,7 @@ export function checkModel() {
 export function solveTEIUpfrontInvestment() {
   var MAX_ITER = 50;
 
-  Excel.run(function (context) {
+  return Excel.run(function (context) {
     var wb = context.workbook;
     wb.application.calculationMode = Excel.CalculationMode.automatic;
 
