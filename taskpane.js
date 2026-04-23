@@ -5,7 +5,7 @@
 // opens the task pane; there are no ExecuteFunction ribbon buttons.
 
 import { clearLog, showEmptyState } from './log.js';
-import { checkModel, solveTEIUpfrontInvestment, findTEPshipFlipDate, solveTermDebt, iterateTermDebt, solveCWENUpfrontInvestment, solveCE2UpfrontInvestment, solveCapexCFCircularity, solveCapitalStack, runScenarios, pasteMetrics } from './commands.js';
+import { checkModel, solveTEIUpfrontInvestment, findTEPshipFlipDate, solveTermDebt, iterateTermDebt, solveCWENUpfrontInvestment, solveCE2UpfrontInvestment, solveCapexCFCircularity, solveCapitalStack, runScenarios, pasteMetrics } from './buttons.js';
 
 Office.onReady(function (info) {
   if (info.host === Office.HostType.Excel) {

@@ -10,8 +10,10 @@
 //   { success: false, log: [ ... ] }           // errors captured in log
 //   { success: false, error: '...', log: [...] } // unexpected rejection
 //
-// commands.js and log.js are identical-interface counterparts to the add-in
-// versions. No changes to commands.js are needed between environments.
+// commands.js is the canonical shared source (add-in root); skill-package/commands.js
+// is auto-synced by the pre-commit hook. log.js here is the skill-context
+// implementation (synchronous buffer + async flushLog) that replaces the
+// add-in's DOM-based log.js — no changes to commands.js are needed.
 
 import * as commands from './commands.js';
 import { flushLog }  from './log.js';

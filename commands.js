@@ -1,6 +1,14 @@
 // commands.js — Clearway Project Financial Model Add-in
 //
-// Exported functions are the public command API (called from taskpane.js).
+// Pure-work command functions shared between the Office.js add-in and the
+// Claude on Excel skill package.
+//
+// Each exported function performs all the Excel work for one command,
+// writes progress and timing to writeLog, and resolves when done.
+// Errors are NOT caught here — callers are responsible for error handling:
+//   buttons.js  (add-in task-pane buttons)
+//   skills.js   (Claude on Excel skill package)
+//
 // Private helpers (_prefixed) are module-scoped and unreachable from outside.
 
 import { writeLog } from './log.js';
@@ -24,9 +32,6 @@ export function checkModel() {
       }
     });
   })
-  .catch(function (error) {
-    writeLog('Check Model error: ' + error.message, 'error');
-  })
   .then(function () {
     writeLog('Check Model: completed in ' + ((Date.now() - t0) / 1000).toFixed(2) + 's.', 'info');
   });
@@ -41,7 +46,8 @@ export function checkModel() {
 // until CEG_TEUpfront_Diff = 0.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function _solveTEIUpfrontInvestmentImpl() {
+export function solveTEIUpfrontInvestment() {
+  var t0 = Date.now();
   var MAX_ITER = 50;
   return Excel.run(function (context) {
     var wb = context.workbook;
@@ -132,14 +138,6 @@ function _solveTEIUpfrontInvestmentImpl() {
         });
       });
     });
-  });
-}
-
-export function solveTEIUpfrontInvestment() {
-  var t0 = Date.now();
-  return _solveTEIUpfrontInvestmentImpl()
-  .catch(function (error) {
-    writeLog('Solve TEI Upfront Investment error: ' + error.message, 'error');
   })
   .then(function () {
     writeLog('Solve TEI Upfront Investment: completed in ' + ((Date.now() - t0) / 1000).toFixed(2) + 's.', 'info');
@@ -187,12 +185,13 @@ function _solveTEIUpfrontInvestmentLoop(context, rDiff, rHC, rLive, iter, maxIte
 // then walks CEG_FlipDate forward or backward via CEG_FlipGuess until
 // CEG_FlipIRR_Live crosses the CEG_FlipIRR target. If CEG_FlipProrateOn is true,
 // subsequently solves for CEG_FlipProrate.
+//
+// Called directly by solveTermDebt, solveCWENUpfrontInvestment, and
+// solveCE2UpfrontInvestment so that errors propagate to those callers.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// Private implementation — contains all the work, no error handling or timer.
-// Called directly by other commands (solveTermDebt, solveCWENUpfrontInvestment,
-// solveCE2UpfrontInvestment) so that errors propagate to the caller's .catch.
-function _findTEPshipFlipDateImpl() {
+export function findTEPshipFlipDate() {
+  var t0 = Date.now();
   var MAX_ITER = 50;
 
   return Excel.run(function (context) {
@@ -344,16 +343,6 @@ function _findTEPshipFlipDateImpl() {
         });
       });
     });
-  });
-}
-
-// Public export — wraps the impl with error handling and elapsed-time logging.
-// Called directly from the task-pane button.
-export function findTEPshipFlipDate() {
-  var t0 = Date.now();
-  return _findTEPshipFlipDateImpl()
-  .catch(function (error) {
-    writeLog('Flip Date error: ' + error.message, 'error');
   })
   .then(function () {
     writeLog('Find TE Partnership Flip Date: completed in ' + ((Date.now() - t0) / 1000).toFixed(2) + 's.', 'info');
@@ -482,7 +471,8 @@ function _valuesEqual(a, b) {
 //   CEG_Scenario2/3/4Active, CEG_FinancingScenario  — accessed via ScenarioManager in VBA
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function _solveTermDebtImpl() {
+export function solveTermDebt() {
+  var t0 = Date.now();
   var flags = null; // shared across the promise chain
 
   // ── Step 1: validate ranges, check TDActive, read all scenario flags ───────
@@ -611,7 +601,7 @@ function _solveTermDebtImpl() {
       return context.sync();
     })
     .then(function () {
-      if (flags.projectDebt !== 'Project') return _findTEPshipFlipDateImpl();
+      if (flags.projectDebt !== 'Project') return findTEPshipFlipDate();
     })
     .then(function () {
       return Excel.run(function (context) {
@@ -636,7 +626,7 @@ function _solveTermDebtImpl() {
       return context.sync();
     })
     .then(function () {
-      if (flags.projectDebt !== 'Project') return _findTEPshipFlipDateImpl();
+      if (flags.projectDebt !== 'Project') return findTEPshipFlipDate();
     })
     .then(function () {
       return Excel.run(function (context) {
@@ -661,7 +651,7 @@ function _solveTermDebtImpl() {
       return context.sync();
     })
     .then(function () {
-      if (flags.projectDebt !== 'Project') return _findTEPshipFlipDateImpl();
+      if (flags.projectDebt !== 'Project') return findTEPshipFlipDate();
     })
     .then(function () {
       return Excel.run(function (context) {
@@ -679,17 +669,9 @@ function _solveTermDebtImpl() {
   .then(function () {
     if (!flags) return;
     writeLog('Term Debt Solve: Sizing term debt…', 'info');
-    return _iterateTermDebtImpl();
+    return iterateTermDebt();
   })
 
-}
-
-export function solveTermDebt() {
-  var t0 = Date.now();
-  return _solveTermDebtImpl()
-  .catch(function (error) {
-    writeLog('Term Debt Solve error: ' + error.message, 'error');
-  })
   .then(function () {
     writeLog('Solve Term Debt: completed in ' + ((Date.now() - t0) / 1000).toFixed(2) + 's.', 'info');
   });
@@ -703,9 +685,8 @@ export function solveTermDebt() {
 // sweep-cap + debt sizing if active, plain debt sizing otherwise.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// Private implementation — contains all the work, no error handling or timer.
-// Called directly by solveTermDebt so that errors propagate to its .catch.
-function _iterateTermDebtImpl() {
+export function iterateTermDebt() {
+  var t0 = Date.now();
   return Excel.run(function (context) {
     var nSweepActive = context.workbook.names.getItemOrNullObject('CEG_SweepActive');
     nSweepActive.load('isNullObject');
@@ -729,16 +710,6 @@ function _iterateTermDebtImpl() {
     } else {
       return _debtSizing();
     }
-  });
-}
-
-// Public export — wraps the impl with error handling and elapsed-time logging.
-// Called directly from the task-pane button.
-export function iterateTermDebt() {
-  var t0 = Date.now();
-  return _iterateTermDebtImpl()
-  .catch(function (error) {
-    writeLog('Iterate Term Debt error: ' + error.message, 'error');
   })
   .then(function () {
     writeLog('Iterate Term Debt: completed in ' + ((Date.now() - t0) / 1000).toFixed(2) + 's.', 'info');
@@ -890,7 +861,8 @@ function _sweepCapAndDebtSizing(bClear) {
 // until CEG_CWENPP_Diff = 0.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function _solveCWENUpfrontInvestmentImpl() {
+export function solveCWENUpfrontInvestment() {
+  var t0 = Date.now();
   var MAX_ITER = 50;
   var ok = false;
 
@@ -936,7 +908,7 @@ function _solveCWENUpfrontInvestmentImpl() {
   // Step 2: solve flip date
   .then(function () {
     if (!ok) return;
-    return _findTEPshipFlipDateImpl();
+    return findTEPshipFlipDate();
   })
 
   // Step 3: convergence loop
@@ -957,14 +929,6 @@ function _solveCWENUpfrontInvestmentImpl() {
     });
   })
 
-}
-
-export function solveCWENUpfrontInvestment() {
-  var t0 = Date.now();
-  return _solveCWENUpfrontInvestmentImpl()
-  .catch(function (error) {
-    writeLog('Solve CWEN error: ' + error.message, 'error');
-  })
   .then(function () {
     writeLog('Solve CWEN Investment: completed in ' + ((Date.now() - t0) / 1000).toFixed(2) + 's.', 'info');
   });
@@ -1015,7 +979,8 @@ function _solveCWENUpfrontInvestmentLoop(context, rDiff, rNPVPaste, rNPVCopy, rC
 // CEG_CE2PP_HC ← CEG_CE2PP_Live until CEG_CE2PP_Diff = 0.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function _solveCE2UpfrontInvestmentImpl() {
+export function solveCE2UpfrontInvestment() {
+  var t0 = Date.now();
   var MAX_ITER = 50;
   var ok = false;
 
@@ -1053,7 +1018,7 @@ function _solveCE2UpfrontInvestmentImpl() {
   // Step 2: solve flip date
   .then(function () {
     if (!ok) return;
-    return _findTEPshipFlipDateImpl();
+    return findTEPshipFlipDate();
   })
 
   // Step 3: convergence loop
@@ -1069,14 +1034,6 @@ function _solveCE2UpfrontInvestmentImpl() {
     });
   })
 
-}
-
-export function solveCE2UpfrontInvestment() {
-  var t0 = Date.now();
-  return _solveCE2UpfrontInvestmentImpl()
-  .catch(function (error) {
-    writeLog('Solve CE2 error: ' + error.message, 'error');
-  })
   .then(function () {
     writeLog('Solve Third-Party CE Investment: completed in ' + ((Date.now() - t0) / 1000).toFixed(2) + 's.', 'info');
   });
@@ -1167,7 +1124,8 @@ function _sweepCapLoop(context, rPrincipalDiff, rPrincipalHC, rPrincipalLive, rS
 // CEG_General.CircularityDeltaPrecision. Restores automatic calculation on exit.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function _solveCapexCFCircularityImpl() {
+export function solveCapexCFCircularity() {
+  var t0 = Date.now();
   var MAX_ITER = 50;
   return Excel.run(function (context) {
     var wb = context.workbook;
@@ -1227,14 +1185,6 @@ function _solveCapexCFCircularityImpl() {
         );
       });
     });
-  })
-}
-
-export function solveCapexCFCircularity() {
-  var t0 = Date.now();
-  return _solveCapexCFCircularityImpl()
-  .catch(function (error) {
-    writeLog('Solve CapEx CF Circularity error: ' + error.message, 'error');
   })
   .then(function () {
     writeLog('Solve CapEx CF Circularity: completed in ' + ((Date.now() - t0) / 1000).toFixed(2) + 's.', 'info');
@@ -1300,7 +1250,8 @@ function _solveCapexCFCircularityLoop(context, rCostDelta, rTakeOutDiff, precisi
 // CEG_MetricsPasteColumn relative to the CEG_KeyMetrics range itself.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function _pasteMetricsImpl() {
+export function pasteMetrics() {
+  var t0 = Date.now();
   return Excel.run(function (context) {
     var wb = context.workbook;
     wb.application.calculationMode = Excel.CalculationMode.automatic;
@@ -1335,14 +1286,6 @@ function _pasteMetricsImpl() {
         });
       });
     });
-  });
-}
-
-export function pasteMetrics() {
-  var t0 = Date.now();
-  return _pasteMetricsImpl()
-  .catch(function (error) {
-    writeLog('Paste Metrics error: ' + error.message, 'error');
   })
   .then(function () {
     writeLog('Paste Metrics: completed in ' + ((Date.now() - t0) / 1000).toFixed(2) + 's.', 'info');
@@ -1351,7 +1294,7 @@ export function pasteMetrics() {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // FMV Income Approach loop helper
-// Used by _solveCapitalStackImpl when CEG_Scenario1Active = true and
+// Used by solveCapitalStack when CEG_Scenario1Active = true and
 // CEG_FMVOverride = "".
 // Iterates CEG_IncomeApproachHC ← CEG_IncomeApproachLive until
 // CEG_IncomeApproachDiff = 0.
@@ -1403,7 +1346,8 @@ function _fmvIncomeApproachLoop(context, rDiff, rHC, rLive, iter, maxIter) {
 //   8. Paste metrics
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function _solveCapitalStackImpl() {
+export function solveCapitalStack() {
+  var t0 = Date.now();
   var MAX_ITER = 50;
   var projectDebt = null;
 
@@ -1425,7 +1369,7 @@ function _solveCapitalStackImpl() {
   })
   .then(function (ok) {
     if (!ok) return;
-    return _solveCapexCFCircularityImpl();
+    return solveCapexCFCircularity();
   })
 
   // ── Step 2: Read CEG_ProjectDebt ──────────────────────────────────────────
@@ -1452,7 +1396,7 @@ function _solveCapitalStackImpl() {
   .then(function (pd) {
     if (pd === 'Project') {
       writeLog('Solve Capital Stack: Solving project-level term debt…', 'info');
-      return _solveTermDebtImpl();
+      return solveTermDebt();
     }
   })
 
@@ -1514,7 +1458,7 @@ function _solveCapitalStackImpl() {
     })
     .then(function () {
       writeLog('Solve Capital Stack: Solving tax equity upfront investment…', 'info');
-      return _solveTEIUpfrontInvestmentImpl();
+      return solveTEIUpfrontInvestment();
     });
   })
 
@@ -1522,7 +1466,7 @@ function _solveCapitalStackImpl() {
   .then(function () {
     if (projectDebt === 'BL') {
       writeLog('Solve Capital Stack: Solving backleverage term debt…', 'info');
-      return _solveTermDebtImpl();
+      return solveTermDebt();
     }
   })
 
@@ -1542,7 +1486,7 @@ function _solveCapitalStackImpl() {
   .then(function (scenario6Active) {
     if (scenario6Active) {
       writeLog('Solve Capital Stack: Solving third-party CE investment…', 'info');
-      return _solveCE2UpfrontInvestmentImpl();
+      return solveCE2UpfrontInvestment();
     }
   })
 
@@ -1562,7 +1506,7 @@ function _solveCapitalStackImpl() {
   .then(function (scenario5Active) {
     if (scenario5Active) {
       writeLog('Solve Capital Stack: Solving CWEN investment…', 'info');
-      return _solveCWENUpfrontInvestmentImpl();
+      return solveCWENUpfrontInvestment();
     }
   })
 
@@ -1575,22 +1519,15 @@ function _solveCapitalStackImpl() {
     });
   })
   .then(function () {
-    return _solveCapexCFCircularityImpl();
+    return solveCapexCFCircularity();
   })
 
   // ── Step 9: Paste metrics ─────────────────────────────────────────────────
   .then(function () {
     writeLog('Solve Capital Stack: Pasting metrics…', 'info');
-    return _pasteMetricsImpl();
-  });
-}
-
-export function solveCapitalStack() {
-  var t0 = Date.now();
-  return _solveCapitalStackImpl()
-  .catch(function (error) {
-    writeLog('Solve Capital Stack error: ' + error.message, 'error');
+    return pasteMetrics();
   })
+
   .then(function () {
     writeLog('Solve Capital Stack: completed in ' + ((Date.now() - t0) / 1000).toFixed(2) + 's.', 'info');
   });
@@ -1601,7 +1538,7 @@ export function solveCapitalStack() {
 // Port of ScenarioManager.RunScenarios().
 //
 // Iterates CEG_InputsScenario from 1 to CEG_TotalScenarios, calling
-// _solveCapitalStackImpl for each scenario in sequence.
+// solveCapitalStack for each scenario in sequence.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function _runScenariosLoop(totalScenarios, currentScenario) {
@@ -1617,7 +1554,7 @@ function _runScenariosLoop(totalScenarios, currentScenario) {
     return context.sync();
   })
   .then(function () {
-    return _solveCapitalStackImpl();
+    return solveCapitalStack();
   })
   .then(function () {
     return _runScenariosLoop(totalScenarios, currentScenario + 1);
@@ -1652,9 +1589,6 @@ export function runScenarios() {
     if (totalScenarios === null) return;
     writeLog('Run Scenarios: Running ' + totalScenarios + ' scenario(s)…', 'info');
     return _runScenariosLoop(totalScenarios, 1);
-  })
-  .catch(function (error) {
-    writeLog('Run Scenarios error: ' + error.message, 'error');
   })
   .then(function () {
     writeLog('Run Scenarios: completed in ' + ((Date.now() - t0) / 1000).toFixed(2) + 's.', 'info');
