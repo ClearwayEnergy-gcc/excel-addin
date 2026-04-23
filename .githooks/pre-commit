@@ -1,0 +1,16 @@
+#!/bin/sh
+# .githooks/pre-commit
+#
+# If commands.js at the repo root is staged for commit, automatically sync
+# it to skill-package/commands.js and stage that file too.
+#
+# This hook is stored in .githooks/ so it travels with the repo.
+# Activate it once per machine with:
+#
+#   git config core.hooksPath .githooks
+
+if git diff --cached --name-only | grep -q "^commands\.js$"; then
+  cp commands.js skill-package/commands.js
+  git add skill-package/commands.js
+  echo "Auto-synced: commands.js → skill-package/commands.js"
+fi
