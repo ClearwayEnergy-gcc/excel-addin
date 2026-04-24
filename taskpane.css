@@ -73,6 +73,35 @@ button:active { background: #b0b0b0; }
 .cmd-btn:hover  { background: #106ebe; }
 .cmd-btn:active { background: #005a9e; }
 
+/* ── Running-command lock states ──────────────────────────────────────────────
+   Applied by buttons.js while a command is executing.
+   :disabled alone is not targeted so these classes fully control the visuals.  */
+
+@keyframes cmd-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.65; }
+}
+
+/* The button that is currently executing — amber with a slow pulse */
+.cmd-btn.cmd-btn-running {
+  background: #c05900;
+  border-color: #a04700;
+  color: #fff;
+  cursor: wait;
+  animation: cmd-pulse 1.4s ease-in-out infinite;
+}
+
+/* Every other command button while a command is running — greyed out */
+.cmd-btn.cmd-btn-waiting {
+  background: #a0a0a0;
+  border-color: #888;
+  color: #e0e0e0;
+  cursor: not-allowed;
+}
+
+/* Suppress default browser disabled styling so our classes take full control */
+.cmd-btn:disabled { opacity: 1; }
+
 /* ── Activity Log section ─────────────────────────────────────────────────── */
 #log-section {
   flex: 1;
