@@ -1174,7 +1174,6 @@ export function solveCapexCFCircularity() {
 
       var nCostDelta         = wb.names.getItemOrNullObject('CEG_Capex.ConstructionCostDelta');
       var nTakeOutDiff       = wb.names.getItemOrNullObject('CEG_CF_TakeOut_Diff');
-      var nPrecision         = wb.names.getItemOrNullObject('CEG_General.CircularityDeltaPrecision');
       var nTakeOutPaste      = wb.names.getItemOrNullObject('CEG_CF_TakeOut_Paste');
       var nTakeOutCopy       = wb.names.getItemOrNullObject('CEG_CF_TakeOut_Copy');
       var nTCInsuranceHC     = wb.names.getItemOrNullObject('CEG_TCInsuranceHCValues');
@@ -1182,7 +1181,7 @@ export function solveCapexCFCircularity() {
       var nConstructionPaste = wb.names.getItemOrNullObject('CEG_CapEx.ConstructionCosts.Paste');
       var nConstructionCopy  = wb.names.getItemOrNullObject('CEG_CapEx.ConstructionCosts.Copy');
 
-      [nCostDelta, nTakeOutDiff, nPrecision, nTakeOutPaste, nTakeOutCopy,
+      [nCostDelta, nTakeOutDiff, nTakeOutPaste, nTakeOutCopy,
        nTCInsuranceHC, nTCInsuranceLive, nConstructionPaste, nConstructionCopy]
         .forEach(function (n) { n.load('isNullObject'); });
 
@@ -1190,7 +1189,6 @@ export function solveCapexCFCircularity() {
         var missing = [];
         if (nCostDelta.isNullObject)        missing.push('CEG_Capex.ConstructionCostDelta');
         if (nTakeOutDiff.isNullObject)       missing.push('CEG_CF_TakeOut_Diff');
-        if (nPrecision.isNullObject)         missing.push('CEG_General.CircularityDeltaPrecision');
         if (nTakeOutPaste.isNullObject)      missing.push('CEG_CF_TakeOut_Paste');
         if (nTakeOutCopy.isNullObject)       missing.push('CEG_CF_TakeOut_Copy');
         if (nTCInsuranceHC.isNullObject)     missing.push('CEG_TCInsuranceHCValues');
@@ -1205,27 +1203,18 @@ export function solveCapexCFCircularity() {
 
         writeLog('Solve CapEx CF Circularity: Solving Construction Financing/CapEx…', 'info');
 
-        // Read precision value once — it is static throughout the loop
-        var rPrecision = nPrecision.getRange();
-        rPrecision.load('values');
-
-        return context.sync().then(function () {
-          var precision = rPrecision.values[0][0];
-
-          return _solveCapexCFCircularityLoop(
-            context,
-            nCostDelta.getRange(),
-            nTakeOutDiff.getRange(),
-            precision,
-            nTakeOutPaste.getRange(),
-            nTakeOutCopy.getRange(),
-            nTCInsuranceHC.getRange(),
-            nTCInsuranceLive.getRange(),
-            nConstructionPaste.getRange(),
-            nConstructionCopy.getRange(),
-            0, MAX_ITER
-          );
-        });
+        return _solveCapexCFCircularityLoop(
+          context,
+          nCostDelta.getRange(),
+          nTakeOutDiff.getRange(),
+          nTakeOutPaste.getRange(),
+          nTakeOutCopy.getRange(),
+          nTCInsuranceHC.getRange(),
+          nTCInsuranceLive.getRange(),
+          nConstructionPaste.getRange(),
+          nConstructionCopy.getRange(),
+          0, MAX_ITER
+        );
       });
     });
   })
@@ -1235,8 +1224,8 @@ export function solveCapexCFCircularity() {
 }
 
 // Loop helper: each iteration pastes TakeOut, TCInsurance, and ConstructionCosts,
-// then triggers a full manual recalculate, until both delta values <= precision.
-function _solveCapexCFCircularityLoop(context, rCostDelta, rTakeOutDiff, precision,
+// then triggers a full manual recalculate, until both delta values === 0.
+function _solveCapexCFCircularityLoop(context, rCostDelta, rTakeOutDiff,
     rTakeOutPaste, rTakeOutCopy, rTCInsuranceHC, rTCInsuranceLive,
     rConstructionPaste, rConstructionCopy, iter, maxIter) {
 
@@ -1256,8 +1245,7 @@ function _solveCapexCFCircularityLoop(context, rCostDelta, rTakeOutDiff, precisi
       writeLog('Solve CapEx CF Circularity [iter ' + iter + ']: ConstructionCostDelta = ' + costDelta + ', TakeOutDiff = ' + takeOutDiff, 'info');
     }
 
-    // Stop when both deltas are within the precision threshold (matches VBA)
-    if (costDelta <= precision && takeOutDiff <= precision) {
+    if (costDelta === 0 && takeOutDiff === 0) {
       writeLog('Solve CapEx CF Circularity: Converged in ' + iter + ' iteration(s).', 'success');
       return;
     }
@@ -1274,7 +1262,7 @@ function _solveCapexCFCircularityLoop(context, rCostDelta, rTakeOutDiff, precisi
       return context.sync().then(function () {
         return _solveCapexCFCircularityLoop(
           context,
-          rCostDelta, rTakeOutDiff, precision,
+          rCostDelta, rTakeOutDiff,
           rTakeOutPaste, rTakeOutCopy,
           rTCInsuranceHC, rTCInsuranceLive,
           rConstructionPaste, rConstructionCopy,
