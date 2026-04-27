@@ -1,13 +1,13 @@
-name: Verify commands.js in sync
+name: Verify shared files in sync
 
-# commands.js must be identical between the add-in (root) and the skill
-# package (skill-package/). This action fails if they diverge, so a change
-# to one without the other is caught before it can be merged.
+# commands.js and config.js must be identical between the add-in (root) and
+# the skill package (skill-package/). This action fails if either diverges,
+# so a change to one without the other is caught before it can be merged.
 #
 # Edit workflow:
-#   1. Edit commands.js at the repo root (canonical source)
-#   2. Copy it to skill-package/commands.js
-#   3. Commit both files together
+#   1. Edit commands.js and/or config.js at the repo root (canonical sources)
+#   2. The pre-commit hook copies them to skill-package/ automatically
+#   3. Commit all files together
 #   4. This check confirms they match
 
 on: [push, pull_request]
@@ -18,14 +18,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: commands.js must be identical in both packages
+      - name: commands.js and config.js must be identical in both packages
         run: |
+          failed=0
+
           if ! diff commands.js skill-package/commands.js > /dev/null 2>&1; then
             echo "ERROR: commands.js is out of sync."
             echo "The add-in (commands.js) and skill package (skill-package/commands.js) must be identical."
             echo ""
             echo "Diff:"
             diff commands.js skill-package/commands.js || true
-            exit 1
+            failed=1
           fi
-          echo "OK: commands.js files are identical."
+
+          if ! diff config.js skill-package/config.js > /dev/null 2>&1; then
+            echo "ERROR: config.js is out of sync."
+            echo "The add-in (config.js) and skill package (skill-package/config.js) must be identical."
+            echo ""
+            echo "Diff:"
+            diff config.js skill-package/config.js || true
+            failed=1
+          fi
+
+          if [ $failed -eq 1 ]; then exit 1; fi
+          echo "OK: commands.js and config.js are identical in both packages."
